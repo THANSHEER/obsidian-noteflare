@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "inlineSourceMap": true,
+    "inlineSources": true,
+    "module": "CommonJS",
+    "target": "ES2018",
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "strictNullChecks": true,
+    "importHelpers": true,
+    "lib": ["ES2018", "dom"],
+    "esModuleInterop": true
+  },
+  "include": ["**/*.ts"]
+}

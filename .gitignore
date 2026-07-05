@@ -1,0 +1,23 @@
+node_modules/
+.DS_Store
+dist/
+*.log
+
+# Plugin data (contains encrypted tokens)
+data.json
+data.json.bak
+
+# IDEs and Editors
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+
+# Testing and Coverage
+coverage/
+.nyc_output/
+
+# Environment Variables
+.env
+.env.*

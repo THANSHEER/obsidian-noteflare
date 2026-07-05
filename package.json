@@ -1,0 +1,24 @@
+{
+  "name": "obsidian-noteflare",
+  "version": "1.0.0",
+  "description": "Publish your Obsidian vault as a free website — one click.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "jest"
+  },
+  "dependencies": {
+    "micromatch": "^4.0.7"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/micromatch": "^4.0.0",
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.20.0",
+    "jest": "^30.4.2",
+    "obsidian": "latest",
+    "ts-jest": "^29.4.11",
+    "typescript": "^5.0.0"
+  }
+}
