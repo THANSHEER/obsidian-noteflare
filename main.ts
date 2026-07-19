@@ -7,16 +7,51 @@ import { StatusBar } from './src/ui/statusBar';
 import { NoteFlareView, VIEW_TYPE_NOTEFLARE } from './src/ui/noteflareView';
 import { decryptSecret, encryptSecret, isSecureStorageAvailable } from './src/core/secureStore';
 import { BackupEngine } from './src/backup/backupEngine';
+import { BackupScheduler } from './src/backup/backupScheduler';
+import { VaultRegistry } from './src/core/vaultRegistry';
+import { GitHubApi } from './src/api/githubApi';
+import { CloudflareApi } from './src/api/cloudflareApi';
+
+export interface LiveSiteStatus {
+  loading: boolean;
+  repoHtmlUrl: string;
+  repoPushedAt: string;
+  workflowStatus: string;    // 'queued' | 'in_progress' | 'completed' | ''
+  workflowConclusion: string; // 'success' | 'failure' | 'cancelled' | ''
+  workflowUrl: string;
+  workflowUpdatedAt: string;
+  commitSha: string;
+  commitMessage: string;
+  commitDate: string;
+  fetchedAt: string; // ISO timestamp of last successful fetch
+  error: string;    // non-empty if last fetch failed
+}
 
 export default class NoteFlarePlugin extends Plugin {
   settings!: NoteFlareSettings;
   statusBar!: StatusBar;
   private ribbonEl: HTMLElement | null = null;
   private backupInProgress = false;
-  private backupDebounceTimer: number | null = null;
+  /** In-progress publish tracking (in-memory only, cleared on success/fail). */
+  publishInProgress: Record<string, boolean> = {};
+  /** Live GitHub status cache (in-memory, refreshed on panel open/refresh). */
+  liveStatus: Record<string, LiveSiteStatus> = {};
 
   async onload(): Promise<void> {
     await this.loadSettings();
+
+    // Check the vault registry for sites that existed before a reinstall.
+    // If credentials are present but no sites are loaded, the user probably
+    // reinstalled the plugin — show a notice prompting them to restore.
+    if (this.settings.githubToken && this.settings.githubOwner && this.settings.sites.length === 0) {
+      const registry = await VaultRegistry.load(this.app);
+      if (registry.entries.length > 0) {
+        new Notice(
+          `NoteFlare found ${registry.entries.length} previously configured site${registry.entries.length === 1 ? '' : 's'} in your vault. Open NoteFlare settings to restore them.`,
+          10000,
+        );
+      }
+    }
 
     if (!isSecureStorageAvailable()) {
       new Notice(
@@ -61,7 +96,8 @@ export default class NoteFlarePlugin extends Plugin {
     });
 
     this.addSettingTab(new NoteFlareSettingsTab(this.app, this));
-    this.registerBackupAutomation();
+    
+    new BackupScheduler(this).registerAutomation();
   }
 
   /** The currently-selected site, or the first one, or null when none exist. */
@@ -162,17 +198,32 @@ export default class NoteFlarePlugin extends Plugin {
       return;
     }
 
+    // Guard against double-clicks.
+    if (this.publishInProgress[site.id]) return;
+    this.publishInProgress[site.id] = true;
+    this.refreshView();
+
     const publisher = new Publisher(this.settings, site, this.app, (message) => {
       this.syncStatusFromProgress(message);
+      this.refreshView();
     });
 
     try {
       const result = await publisher.publish();
+      // publisher.ts already wrote lastPublishFailed/lastPublishError onto site.
       await this.applyPublishResult(site, result);
     } catch (err: unknown) {
       const message = this.toUserMessage(err, 'Publishing failed. Review your setup and try again.');
+      // Persist the failure so it survives a restart.
+      site.lastPublishFailed = true;
+      site.lastPublishError = message;
+      site.isPublished = false;
       this.statusBar.setError(message);
       new Notice(message, 8000);
+      await this.saveSettings();
+    } finally {
+      this.publishInProgress[site.id] = false;
+      this.refreshView();
     }
   }
 
@@ -220,6 +271,18 @@ export default class NoteFlarePlugin extends Plugin {
       persisted.cloudflareTokenEnc = cloudflareToken ? encryptSecret(cloudflareToken) : '';
     }
     await this.saveData(persisted);
+
+    // Keep the vault registry in sync so sites survive plugin uninstall/reinstall.
+    // Non-fatal: a registry write failure must not block the settings save.
+    for (const site of this.settings.sites) {
+      void VaultRegistry.upsert(
+        this.app,
+        site,
+        this.settings.masterRepository,
+        this.settings.githubOwner,
+        this.settings.masterRepositoryPrivate || false,
+      );
+    }
 
     this.updateStatusBar();
     this.updateRibbonIcon();
@@ -270,45 +333,6 @@ export default class NoteFlarePlugin extends Plugin {
     this.statusBar.setMessage(`NoteFlare: ${message}`);
   }
 
-  private registerBackupAutomation(): void {
-    const queueAfterChange = () => {
-      if (!this.settings.enableBackup || !this.settings.backup.backupOnChange) return;
-      if (this.backupDebounceTimer !== null) window.clearTimeout(this.backupDebounceTimer);
-      this.backupDebounceTimer = window.setTimeout(() => {
-        this.backupDebounceTimer = null;
-        void this.doBackup(true);
-      }, 30000);
-    };
-
-    this.registerEvent(this.app.vault.on('create', queueAfterChange));
-    this.registerEvent(this.app.vault.on('modify', queueAfterChange));
-    this.registerEvent(this.app.vault.on('delete', queueAfterChange));
-    this.registerEvent(this.app.vault.on('rename', queueAfterChange));
-    this.register(() => {
-      if (this.backupDebounceTimer !== null) window.clearTimeout(this.backupDebounceTimer);
-    });
-
-    this.registerInterval(window.setInterval(() => {
-      void this.runScheduledBackupIfDue();
-    }, 60000));
-    this.app.workspace.onLayoutReady(() => void this.runScheduledBackupIfDue());
-  }
-
-  private async runScheduledBackupIfDue(): Promise<void> {
-    const { backup } = this.settings;
-    if (!this.settings.setupComplete || !this.settings.enableBackup || backup.intervalMinutes <= 0) {
-      return;
-    }
-
-    const lastAttempt = backup.lastBackupAttemptAt
-      ? new Date(backup.lastBackupAttemptAt).getTime()
-      : 0;
-    const intervalMs = backup.intervalMinutes * 60 * 1000;
-    if (!lastAttempt || Date.now() - lastAttempt >= intervalMs) {
-      await this.doBackup(true);
-    }
-  }
-
   defaultBackupRepository(): string {
     const vaultName = this.app.vault.getName()
       .toLowerCase()
@@ -319,20 +343,127 @@ export default class NoteFlarePlugin extends Plugin {
 
   private async applyPublishResult(site: SiteProfile, result: PublishResult): Promise<void> {
     site.lastPublished = new Date().toISOString();
-    site.isPublished = site.isPublished || result.success;
-    site.lastNoteCount = result.uploaded;
+    site.isPublished = result.success;
+    // Use noteCount (vault files only) — not result.uploaded which also counts build files.
+    site.lastNoteCount = result.noteCount;
+    // lastPublishFailed and lastPublishError were already set by publisher.ts;
+    // ensure they're correct even if publisher didn't set them (shouldn't happen).
+    site.lastPublishFailed = !result.success;
+    site.lastPublishError = result.success ? '' : (result.errors[0] ?? 'Unknown error');
     await this.saveSettings();
 
     if (result.success) {
-      this.statusBar.setLive(result.uploaded, site.siteUrl);
+      this.statusBar.setLive(result.noteCount, site.siteUrl);
       const fixedNote = result.fixed > 0 ? ` (auto-fixed ${result.fixed} frontmatter issue${result.fixed === 1 ? '' : 's'})` : '';
-      new Notice(`Published ${result.uploaded} files to ${site.siteUrl}${fixedNote}`, 6000);
+      new Notice(`Published ${result.noteCount} file${result.noteCount === 1 ? '' : 's'} to ${site.siteUrl}${fixedNote}`, 6000);
+      // Kick off a live status fetch so the panel reflects the new deployment.
+      void this.fetchLiveStatus(site);
       return;
     }
 
     const firstError = result.errors[0] ?? 'Publishing failed. Review your setup and try again.';
     this.statusBar.setError(firstError);
     new Notice(`Failed to publish: ${firstError}`, 8000);
+  }
+
+  /**
+   * Fetch live GitHub status for the given site and cache it in `liveStatus`.
+   * The view calls this on open and on the Refresh button. Never throws.
+   */
+  async fetchLiveStatus(site: SiteProfile): Promise<void> {
+    const repo = site.githubRepo || this.settings.masterRepository;
+    
+    if (!this.settings.githubToken || !this.settings.githubOwner || !repo) {
+      this.liveStatus[site.id] = {
+        ...(this.liveStatus[site.id] ?? {}),
+        loading: false,
+        error: !repo ? 'GitHub repository not configured.' : 'GitHub account not connected.',
+      } as LiveSiteStatus;
+      this.refreshView();
+      return;
+    }
+
+    const branch = site.githubBranch || 'main';
+    const github = new GitHubApi(
+      this.settings.githubToken,
+      this.settings.githubOwner,
+      repo,
+      branch,
+    );
+
+    // Mark loading so the view can show a spinner.
+    this.liveStatus[site.id] = {
+      ...(this.liveStatus[site.id] ?? {}),
+      loading: true,
+    } as LiveSiteStatus;
+    this.refreshView();
+
+    try {
+      const [repoInfo, workflowRun, latestCommit] = await Promise.all([
+        github.getRepoInfo(),
+        github.getLatestWorkflowRun('deploy.yml'),
+        github.getLatestCommit(branch),
+      ]);
+
+      let cfWorkflowStatus = workflowRun?.status ?? '';
+      let cfWorkflowConclusion = workflowRun?.conclusion ?? '';
+      let cfWorkflowUrl = workflowRun?.htmlUrl ?? '';
+      let cfWorkflowUpdatedAt = workflowRun?.updatedAt ?? '';
+
+      if (site.hostingProvider === 'cloudflare' && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
+        try {
+          const cf = new CloudflareApi(this.settings.cloudflareToken, this.settings.cloudflareAccount);
+          const cfDeployments = await cf.listDeployments(site.cloudflareProject);
+          const latestCf = cfDeployments?.result?.[0];
+          if (latestCf) {
+            const status = latestCf.status as string | undefined;
+            if (status === 'queued' || status === 'pending' || status === 'in_progress') {
+              cfWorkflowStatus = 'in_progress';
+              cfWorkflowConclusion = '';
+            } else if (status === 'success' || status === 'active') {
+              cfWorkflowStatus = 'completed';
+              cfWorkflowConclusion = 'success';
+            } else if (status === 'failure' || status === 'error') {
+              cfWorkflowStatus = 'completed';
+              cfWorkflowConclusion = 'failure';
+            } else if (status === 'canceled') {
+              cfWorkflowStatus = 'completed';
+              cfWorkflowConclusion = 'cancelled';
+            } else {
+              cfWorkflowStatus = 'completed';
+              cfWorkflowConclusion = 'success';
+            }
+            cfWorkflowUrl = (latestCf.url as string | undefined) || '';
+            cfWorkflowUpdatedAt = (latestCf.modified_on as string | undefined) || (latestCf.created_on as string | undefined) || '';
+          }
+        } catch (cfErr: unknown) {
+          console.warn('NoteFlare: could not fetch Cloudflare status:', cfErr);
+        }
+      }
+
+      this.liveStatus[site.id] = {
+        loading: false,
+        repoHtmlUrl: repoInfo?.htmlUrl ?? '',
+        repoPushedAt: repoInfo?.pushedAt ?? '',
+        workflowStatus: cfWorkflowStatus,
+        workflowConclusion: cfWorkflowConclusion,
+        workflowUrl: cfWorkflowUrl,
+        workflowUpdatedAt: cfWorkflowUpdatedAt,
+        commitSha: latestCommit?.sha ?? '',
+        commitMessage: latestCommit?.message ?? '',
+        commitDate: latestCommit?.date ?? '',
+        fetchedAt: new Date().toISOString(),
+        error: '',
+      };
+    } catch (err: unknown) {
+      this.liveStatus[site.id] = {
+        ...(this.liveStatus[site.id] ?? {}),
+        loading: false,
+        error: (err instanceof Error ? err.message : 'Status fetch failed'),
+      } as LiveSiteStatus;
+    }
+
+    this.refreshView();
   }
 
   openSettingsTab(): void {
@@ -352,11 +483,10 @@ export default class NoteFlarePlugin extends Plugin {
 /**
  * Build the in-memory settings from whatever is in `data.json`, upgrading two
  * legacy shapes so existing users keep working:
- *  1. plaintext `githubToken`/`cloudflareToken` → decrypt-on-load via `*Enc`,
- *     and flag a re-save so the plaintext is scrubbed and rewritten encrypted.
+ *  1. plaintext `githubToken`/`cloudflareToken` → decrypt-on-load via `*Enc`
+ *     (the plaintext is scrubbed on the next save).
  *  2. flat single-site fields (`githubRepo`, `cloudflareProject`, …) → one
  *     SiteProfile in `sites[]`.
- * Returns `needsResave` so the caller rewrites the file in the new shape.
  */
 function migrateSettings(
   loaded: Record<string, unknown> | null,
@@ -372,6 +502,7 @@ function migrateSettings(
   settings.githubOwner = str(loaded.githubOwner);
   settings.cloudflareAccount = str(loaded.cloudflareAccount);
   settings.masterRepository = str(loaded.masterRepository) || 'noteflare-sites';
+  settings.masterRepositoryPrivate = loaded.masterRepositoryPrivate === true;
   settings.setupComplete = loaded.setupComplete === true;
   settings.activeSiteId = str(loaded.activeSiteId);
   settings.enableBackup = loaded.enableBackup === true;
@@ -383,7 +514,7 @@ function migrateSettings(
     ...DEFAULT_BACKUP_SETTINGS,
     ...(savedBackup ?? {}),
     repository: savedBackup?.repository ?? '',
-    folder: savedBackup?.folder ?? '',
+    repoVisibility: (savedBackup?.repoVisibility as 'private' | 'public' | undefined) ?? 'private',
     backupOnChange: savedBackup?.backupOnChange ?? true,
     lastBackupAt: savedBackup?.lastBackupAt ?? '',
   };
@@ -400,7 +531,7 @@ function migrateSettings(
       // Migrate legacy publishScope ('folder' | 'page') and publishPath to publishPaths
       let publishScope = s.publishScope as string | undefined;
       let publishPaths = s.publishPaths as string[] | undefined;
-      
+
       if (publishScope === 'folder' || publishScope === 'page') {
         publishScope = 'selected';
         const legacyPath = s.publishPath as string | undefined;
@@ -409,10 +540,21 @@ function migrateSettings(
         }
       }
 
+      // Migrate legacy deployTarget to hostingProvider, then discard it.
+      let hostingProvider = s.hostingProvider as SiteProfile['hostingProvider'] | undefined;
+      if (!hostingProvider) {
+        const legacyTarget = s.deployTarget as string | undefined;
+        hostingProvider = legacyTarget === 'cloudflare' ? 'cloudflare' : 'github-pages';
+      }
+
+      const { deployTarget: _dt, ...rest } = s as Record<string, unknown>;
+      void _dt; // consumed by migration above
+
       return createSiteProfile({
-        ...(s as Partial<SiteProfile>),
+        ...(rest as Partial<SiteProfile>),
         publishScope: (publishScope as 'vault' | 'selected') || 'vault',
         publishPaths: publishPaths || [],
+        hostingProvider,
       });
     });
   }

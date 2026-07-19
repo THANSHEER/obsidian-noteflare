@@ -1,2 +1,6 @@
-# Auto detect text files and perform LF normalization
 * text=auto
+
+# Exclude generated/config JavaScript from GitHub Linguist language statistics
+main.js linguist-generated
+esbuild.config.mjs linguist-generated
+jest.config.js linguist-generated

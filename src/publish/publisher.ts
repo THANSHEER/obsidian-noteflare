@@ -5,7 +5,7 @@ import { CloudflareApi } from '../api/cloudflareApi';
 import { FileCollector } from './fileCollector';
 import { Transformer } from './transformer';
 import { inspectFrontmatter } from './contentValidator';
-import { MDGARDEN_VERSION, NODE_VERSION, GITHUB_ACTIONS_WORKFLOW } from '../core/constants';
+import { GITHUB_ACTIONS_WORKFLOW, MDGARDEN_VERSION, NODE_VERSION } from '../core/constants';
 
 const RECONNECT_HINT =
   "If the build can't start, reconnect Cloudflare to GitHub: install/authorize the " +
@@ -29,10 +29,9 @@ export class Publisher {
     private onProgress: (msg: string) => void,
   ) {}
 
-  /** Determine the effective deploy target for this site. */
-  private get deployTarget(): 'cloudflare' | 'github-actions' {
-    if (this.site.deployTarget) return this.site.deployTarget;
-    return this.settings.cloudflareToken ? 'cloudflare' : 'github-actions';
+  /** Effective hosting provider for this site. */
+  private get hostingProvider(): SiteProfile['hostingProvider'] {
+    return this.site.hostingProvider;
   }
 
   async publish(): Promise<PublishResult> {
@@ -49,8 +48,11 @@ export class Publisher {
       );
       branch = await probe.getDefaultBranch();
       this.site.githubBranch = branch;
+
+      const isPrivate = await probe.isRepoPrivate();
+      this.settings.masterRepositoryPrivate = isPrivate;
     } catch {
-      // Keep the stored branch.
+      // Keep the stored branch and privacy.
     }
 
     const github = new GitHubApi(
@@ -113,9 +115,10 @@ export class Publisher {
       content: textToBase64(`${NODE_VERSION}\n`),
     });
 
-    // GitHub Actions deploy target: push the workflow file so GitHub Pages
-    // builds and publishes the site automatically on every push.
-    if (this.deployTarget === 'github-actions') {
+    // For GitHub Actions / GitHub Pages: commit the deploy workflow so the
+    // build triggers on push. Without this file, no workflow runs and the
+    // site stays blank forever.
+    if (this.hostingProvider === 'github-pages') {
       uploadFilesMap.set('.github/workflows/deploy.yml', {
         path: '.github/workflows/deploy.yml',
         content: textToBase64(GITHUB_ACTIONS_WORKFLOW),
@@ -134,13 +137,16 @@ export class Publisher {
       // Mirror content/ so notes removed or excluded from the vault disappear
       // from the published site too.
       `${rootDir}/content/`,
+      { isPrivate: this.settings.masterRepositoryPrivate || false }
     );
 
     result.fixed = fixedCount;
     result.issues = issues;
+    // noteCount = vault files only (notes + attachments), excluding build files like
+    // package.json, mdgarden.config.json, .node-version, and the GH Actions workflow.
+    result.noteCount = files.length;
 
-    // ── Cloudflare-specific post-publish steps ─────────────────────────────
-    if (this.deployTarget === 'cloudflare') {
+    if (result.success && this.hostingProvider === 'cloudflare') {
       const cloudflare = new CloudflareApi(
         this.settings.cloudflareToken,
         this.settings.cloudflareAccount,
@@ -151,7 +157,8 @@ export class Publisher {
         await cloudflare.enableDeployment(this.site.cloudflareProject);
       } catch (err: unknown) {
         const msg = (err as Error).message;
-        if (msg.includes('Project not found')) {
+        const status = (err as Error & { status?: number }).status;
+        if (status === 404 || msg.toLowerCase().includes('project not found')) {
           try {
             await cloudflare.createProject(
               this.site.cloudflareProject,
@@ -173,26 +180,35 @@ export class Publisher {
 
       // Repair the Pages build settings every publish so a project created earlier
       // with a bad build command or stale branch self-heals.
-      try {
-        await cloudflare.configureBuild(
-          this.site.cloudflareProject,
-          this.settings.githubOwner,
-          repo,
-          branch,
-          rootDir,
-        );
-      } catch (err: unknown) {
-        result.errors.push(`Cloudflare build config: ${(err as Error).message}`);
-        result.success = false;
+      if (result.success) {
+        try {
+          await cloudflare.configureBuild(
+            this.site.cloudflareProject,
+            this.settings.githubOwner,
+            repo,
+            branch,
+            rootDir,
+          );
+        } catch (err: unknown) {
+          result.errors.push(`Cloudflare build config: ${(err as Error).message}`);
+          result.success = false;
+        }
       }
 
-      try {
-        await cloudflare.triggerDeployment(this.site.cloudflareProject, branch);
-      } catch (err: unknown) {
-        result.errors.push(`Cloudflare build: ${(err as Error).message}. ${RECONNECT_HINT}`);
-        result.success = false;
+      if (result.success) {
+        try {
+          await cloudflare.triggerDeployment(this.site.cloudflareProject, branch);
+        } catch (err: unknown) {
+          result.errors.push(`Cloudflare build: ${(err as Error).message}. ${RECONNECT_HINT}`);
+          result.success = false;
+        }
       }
     }
+
+    // Write publish outcome back onto the profile so it survives a restart.
+    // main.ts will call saveSettings() after this returns.
+    this.site.lastPublishFailed = !result.success;
+    this.site.lastPublishError = result.success ? '' : (result.errors[0] ?? 'Unknown error');
 
     return result;
   }
@@ -241,14 +257,16 @@ export class Publisher {
   }
 
   async unpublish(): Promise<void> {
-    if (this.deployTarget === 'cloudflare') {
-      const cloudflare = new CloudflareApi(
-        this.settings.cloudflareToken,
-        this.settings.cloudflareAccount,
-      );
-      await cloudflare.deleteProject(this.site.cloudflareProject);
+    if (this.hostingProvider !== 'cloudflare') {
+      throw new Error('Unpublish via API is only supported for Cloudflare Pages sites.');
     }
-    // For GitHub Actions target, unpublish is a manual step in GitHub Pages settings.
+    const cloudflare = new CloudflareApi(
+      this.settings.cloudflareToken,
+      this.settings.cloudflareAccount,
+    );
+    // Pause the deployment — takes the site offline without deleting the project
+    // or any content. Re-publishing simply re-enables it via enableDeployment.
+    await cloudflare.disableDeployment(this.site.cloudflareProject);
   }
 
 }

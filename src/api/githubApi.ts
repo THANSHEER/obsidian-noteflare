@@ -115,6 +115,120 @@ export class GitHubApi {
     }
   }
 
+  /**
+   * Configures GitHub Pages for the repository using GitHub Actions as the source.
+   * This prevents the 404 error during the first deploy-pages action.
+   */
+  async enableGitHubPages(): Promise<void> {
+    const resp = await doRequest(`${GITHUB_API}/repos/${this.owner}/${this.repo}/pages`, {
+      method: 'POST',
+      headers: {
+        ...this.headers,
+        Accept: 'application/vnd.github.v3+json',
+      },
+      body: JSON.stringify({
+        build_type: 'workflow',
+      }),
+    });
+
+    if (!resp.ok && resp.status !== 409) { // 409 means already enabled
+      const text = await resp.text().catch(() => '');
+      throw new Error(`Failed to enable GitHub Pages: ${resp.status} ${text}`);
+    }
+  }
+
+  /**
+   * Returns high-level repository metadata for the live status dashboard.
+   * Returns null (never throws) so callers can fall back to cached data.
+   */
+  async getRepoInfo(): Promise<{
+    htmlUrl: string;
+    pushedAt: string;
+    isPrivate: boolean;
+    description: string;
+  } | null> {
+    try {
+      const resp = await doRequest(`${GITHUB_API}/repos/${this.owner}/${this.repo}`, {
+        headers: this.headers,
+      });
+      if (!resp.ok) return null;
+      const data = (await resp.json()) as Record<string, unknown>;
+      return {
+        htmlUrl: (data.html_url as string) || '',
+        pushedAt: (data.pushed_at as string) || '',
+        isPrivate: (data.private as boolean) || false,
+        description: (data.description as string) || '',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the most recent workflow run for the given workflow file.
+   * `workflowFile` is the filename under `.github/workflows/`, e.g. `deploy.yml`.
+   * Returns null (never throws) on any error.
+   */
+  async getLatestWorkflowRun(workflowFile: string): Promise<{
+    status: string;       // 'queued' | 'in_progress' | 'completed'
+    conclusion: string;   // 'success' | 'failure' | 'cancelled' | '' (when in_progress)
+    htmlUrl: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null> {
+    try {
+      const resp = await doRequest(
+        `${GITHUB_API}/repos/${this.owner}/${this.repo}/actions/workflows/${encodeURIComponent(workflowFile)}/runs?per_page=1`,
+        { headers: this.headers },
+      );
+      if (!resp.ok) return null;
+      const data = (await resp.json()) as { workflow_runs?: Record<string, unknown>[] };
+      const run = data.workflow_runs?.[0];
+      if (!run) return null;
+      return {
+        status: (run.status as string) || '',
+        conclusion: (run.conclusion as string) || '',
+        htmlUrl: (run.html_url as string) || '',
+        createdAt: (run.created_at as string) || '',
+        updatedAt: (run.updated_at as string) || '',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the tip commit info for a branch.
+   * Returns null (never throws) on any error.
+   */
+  async getLatestCommit(branch?: string): Promise<{
+    sha: string;
+    message: string;
+    date: string;
+    author: string;
+    htmlUrl: string;
+  } | null> {
+    const ref = branch || this.branch || 'main';
+    try {
+      const resp = await doRequest(
+        `${GITHUB_API}/repos/${this.owner}/${this.repo}/commits/${encodeURIComponent(ref)}`,
+        { headers: this.headers },
+      );
+      if (!resp.ok) return null;
+      const data = (await resp.json()) as Record<string, unknown>;
+      const commit = data.commit as Record<string, unknown> | undefined;
+      const commitAuthor = commit?.author as Record<string, unknown> | undefined;
+      return {
+        sha: ((data.sha as string) || '').slice(0, 7),
+        message: ((commit?.message as string) || '').split('\n')[0],
+        date: (commitAuthor?.date as string) || '',
+        author: (commitAuthor?.name as string) || '',
+        htmlUrl: (data.html_url as string) || '',
+      };
+    } catch {
+      return null;
+    }
+  }
 
   /** Thin JSON wrapper around the GitHub REST API; throws with .status on error. */
   private async gh<T>(path: string, method: string, body?: unknown): Promise<T> {
@@ -147,7 +261,7 @@ export class GitHubApi {
     mirrorPrefix = '',
     options?: { isPrivate?: boolean }
   ): Promise<PublishResult & { commitSha?: string }> {
-    const result: PublishResult & { commitSha?: string } = { success: true, uploaded: 0, failed: 0, errors: [], fixed: 0, issues: [] };
+    const result: PublishResult & { commitSha?: string } = { success: true, uploaded: 0, noteCount: 0, failed: 0, errors: [], fixed: 0, issues: [] };
     if (files.length === 0) return result;
 
     try {
@@ -182,10 +296,8 @@ export class GitHubApi {
     let branchExists = true;
 
     try {
-      if (!headSha) {
-        const ref = await this.gh<{ object: { sha: string } }>(refPath, 'GET');
-        headSha = ref.object.sha;
-      }
+      const ref = await this.gh<{ object: { sha: string } }>(refPath, 'GET');
+      headSha = ref.object.sha;
       const headCommit = await this.gh<{ tree: { sha: string } }>(
         `/repos/${this.owner}/${this.repo}/git/commits/${headSha}`,
         'GET',
@@ -392,6 +504,64 @@ export class GitHubApi {
       'GET',
     );
     return (data.tree ?? []).filter((item) => item.type === 'blob');
+  }
+
+  /**
+   * Remove a site's entire sub-folder (`sites/<siteId>/`) from the master repo
+   * in a single commit using null-SHA tree entries (the same mirror-deletion
+   * mechanism used by publish). Does NOT delete the master repo — other sites
+   * may still be living there. Best-effort: if the folder doesn't exist or the
+   * repo is unreachable, this returns without throwing.
+   */
+  async deleteSiteFolder(siteId: string, branch: string): Promise<void> {
+    const prefix = `sites/${siteId}/`;
+
+    // Resolve the branch tip.
+    let headSha: string;
+    let baseTreeSha: string;
+    const refPath = `/repos/${this.owner}/${this.repo}/git/refs/heads/${encodeURIComponent(branch)}`;
+
+    try {
+      const ref = await this.gh<{ object: { sha: string } }>(refPath, 'GET');
+      headSha = ref.object.sha;
+      const headCommit = await this.gh<{ tree: { sha: string } }>(
+        `/repos/${this.owner}/${this.repo}/git/commits/${headSha}`,
+        'GET',
+      );
+      baseTreeSha = headCommit.tree.sha;
+    } catch {
+      // Repo or branch doesn't exist — nothing to delete.
+      return;
+    }
+
+    // Find all blobs under the site prefix.
+    let toDelete: Array<{ path: string; mode: '100644'; type: 'blob'; sha: null }> = [];
+    try {
+      const fullTree = await this.gh<{ tree: Array<{ path: string; type: string }> }>(
+        `/repos/${this.owner}/${this.repo}/git/trees/${baseTreeSha}?recursive=1`,
+        'GET',
+      );
+      toDelete = fullTree.tree
+        .filter((item) => item.type === 'blob' && item.path.startsWith(prefix))
+        .map((item) => ({ path: item.path, mode: '100644' as const, type: 'blob' as const, sha: null }));
+    } catch {
+      return; // Can't read the tree — skip silently.
+    }
+
+    if (toDelete.length === 0) return; // Nothing under that prefix.
+
+    // Commit the deletions as a single tree update.
+    const tree = await this.gh<{ sha: string }>(
+      `/repos/${this.owner}/${this.repo}/git/trees`,
+      'POST',
+      { base_tree: baseTreeSha, tree: toDelete },
+    );
+    const commit = await this.gh<{ sha: string }>(
+      `/repos/${this.owner}/${this.repo}/git/commits`,
+      'POST',
+      { message: `NoteFlare: remove site ${siteId}`, tree: tree.sha, parents: [headSha] },
+    );
+    await this.gh(refPath, 'PATCH', { sha: commit.sha, force: false });
   }
 
 }

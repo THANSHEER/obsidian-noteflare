@@ -1,6 +1,6 @@
 {
   "name": "obsidian-noteflare",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Publish your Obsidian vault as a free website — one click.",
   "main": "main.js",
   "scripts": {
@@ -19,6 +19,7 @@
     "jest": "^30.4.2",
     "obsidian": "latest",
     "ts-jest": "^29.4.11",
+    "tslib": "^2.8.1",
     "typescript": "^5.0.0"
   }
 }

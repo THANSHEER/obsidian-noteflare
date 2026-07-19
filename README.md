@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/THANSHEER/media-hub/main/obsidian-noteflare/logo/logo.svg" alt="NoteFlare Logo" width="200" />
+  <img src="https://raw.githubusercontent.com/THANSHEER/obsidian-noteflare/main/assets/logo.svg" alt="NoteFlare Logo" width="200" />
 
   # NoteFlare for Obsidian
 
@@ -24,7 +24,7 @@ With a few clicks, you can turn your vault into a stunning, fully-functional web
 
 ### See it in action: Publishing Notes
 <div align="center">
-  <img src="https://raw.githubusercontent.com/THANSHEER/media-hub/main/obsidian-noteflare/webp/obsidian-noteflare-publish.webp" alt="Publish Notes Demo" style="max-width: 100%; border-radius: 8px;" />
+  <img src="https://raw.githubusercontent.com/THANSHEER/obsidian-noteflare/main/assets/obsidian-noteflare-publish.webp" alt="Publish Notes Demo" style="max-width: 100%; border-radius: 8px;" />
 </div>
 
 ---
@@ -59,7 +59,7 @@ As long as you are on the **same computer**, this works perfectly. The second va
 You can install NoteFlare directly from the Obsidian Community Plugins store:
 
 1. Open Obsidian and navigate to **Settings** > **Community plugins**.
-2. Turn off **Safe Mode** if it is enabled.
+2. Turn off **Restricted Mode** if it is enabled.
 3. Click **Browse** and search for **"NoteFlare"**.
 4. Click **Install**, and then **Enable**.
 
@@ -76,7 +76,7 @@ If you prefer to install manually from the [GitHub Repository](https://github.co
 NoteFlare features a beautiful Guided Setup Wizard that gets you online in minutes.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/THANSHEER/media-hub/main/obsidian-noteflare/webp/obsidian-noteflare-onboarding.webp" alt="Onboarding Demo" style="max-width: 100%; border-radius: 8px;" />
+  <img src="https://raw.githubusercontent.com/THANSHEER/obsidian-noteflare/main/assets/obsidian-noteflare-onboarding.webp" alt="Onboarding Demo" style="max-width: 100%; border-radius: 8px;" />
 </div>
 
 1. **Connect Accounts:** Open the NoteFlare settings and enter your GitHub token (and Cloudflare token, if you prefer Cloudflare hosting). The wizard will guide you to the exact links you need to generate these.
@@ -89,7 +89,7 @@ NoteFlare features a beautiful Guided Setup Wizard that gets you online in minut
 Tailor your site structure, backup frequency, and deployment hooks directly inside NoteFlare's advanced configuration panel:
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/THANSHEER/media-hub/main/obsidian-noteflare/webp/obsidian-noteflare-advance-settings.webp" alt="Advanced Settings Demo" style="max-width: 100%; border-radius: 8px;" />
+  <img src="https://raw.githubusercontent.com/THANSHEER/obsidian-noteflare/main/assets/obsidian-noteflare-advance-settings.webp" alt="Advanced Settings Demo" style="max-width: 100%; border-radius: 8px;" />
 </div>
 
 ---
