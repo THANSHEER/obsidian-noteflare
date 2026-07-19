@@ -52,7 +52,7 @@ export async function renderRestoreFromRegistry(tab: NoteFlareSettingsTab, el: H
                 githubBranch: entry.githubBranch,
                 cloudflareProject: entry.cloudflareProject,
                 siteUrl: entry.siteUrl,
-                hostingProvider: entry.hostingProvider as RegistryEntry['hostingProvider'],
+                hostingProvider: entry.hostingProvider,
                 lastPublished: entry.lastPublished,
                 isPublished: !!entry.lastPublished,
               });

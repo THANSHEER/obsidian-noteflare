@@ -36,6 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -71,6 +73,15 @@ jobs:
       - name: Build plugin assets
         if: steps.check.outputs.bump == 'true'
         run: npm run build
+
+      - name: Attest Build Provenance
+        if: steps.check.outputs.bump == 'true'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
 
       - name: Create GitHub Release
         if: steps.check.outputs.bump == 'true'

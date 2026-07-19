@@ -74,12 +74,12 @@ jobs:
                 npm ci || npm install
                 npx mdgarden build
               )
-              site_id=\$(basename "\${site_dir}")
+              site_id=$(basename "\${site_dir}")
               cp -r "\${site_dir}public" "build_output/sites/\${site_id}"
-              found_sites=\$((found_sites + 1))
+              found_sites=$((found_sites + 1))
             fi
           done
-          if [ "\$found_sites" -eq 0 ]; then
+          if [ "$found_sites" -eq 0 ]; then
             echo "No sites found to build."
             mkdir -p build_output
             echo "<h1>No sites published yet</h1>" > build_output/index.html
@@ -88,18 +88,18 @@ jobs:
             latest_time=0
             for site_dir in sites/*/; do
               if [ -f "\${site_dir}package.json" ]; then
-                mtime=\$(git log -1 --format="%ct" "\${site_dir}" 2>/dev/null || echo 0)
-                if [ "\$mtime" -gt "\$latest_time" ]; then
-                  latest_time="\$mtime"
-                  latest_site=\$(basename "\${site_dir}")
+                mtime=$(git log -1 --format="%ct" "\${site_dir}" 2>/dev/null || echo 0)
+                if [ "$mtime" -gt "$latest_time" ]; then
+                  latest_time="$mtime"
+                  latest_site=$(basename "\${site_dir}")
                 fi
               fi
             done
-            if [ -z "\$latest_site" ]; then
-              latest_site=\$(ls -1 build_output/sites | head -n 1)
+            if [ -z "$latest_site" ]; then
+              latest_site=$(ls -1 build_output/sites | head -n 1)
             fi
-            if [ -n "\$latest_site" ]; then
-              echo "Deploying '\$latest_site' to root..."
+            if [ -n "$latest_site" ]; then
+              echo "Deploying '$latest_site' to root..."
               cp -r "sites/\${latest_site}/public/." build_output/
             fi
           fi

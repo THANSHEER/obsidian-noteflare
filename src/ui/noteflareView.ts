@@ -77,11 +77,11 @@ export class NoteFlareView extends ItemView {
       return;
     }
 
-    const content = root.createEl('div', { cls: 'noteflare-tab-content' });
+    const content = root.createDiv({ cls: 'noteflare-tab-content' });
     if (s.enablePublish) {
       await this.renderPublish(content);
     } else {
-      const backup = content.createEl('div');
+      const backup = content.createDiv();
       backup.createEl('h3', { text: 'Your vault is protected' });
       backup.createEl('p', {
         text: s.backup.lastBackupAt
@@ -349,7 +349,7 @@ export class NoteFlareView extends ItemView {
       }
     }
 
-    const badgeEl = headerRow.createEl('span');
+    const badgeEl = headerRow.createSpan();
     badgeEl.setCssStyles({ fontWeight: '600', color: badgeColor, fontSize: 'var(--font-ui-medium)' });
     badgeEl.setText(`${badgeEmoji} ${badgeText}`);
 
@@ -373,14 +373,14 @@ export class NoteFlareView extends ItemView {
     });
 
     const addRow = (label: string, value: string, href?: string) => {
-      const labelEl = grid.createEl('span', { text: label });
+      const labelEl = grid.createSpan({ text: label });
       labelEl.setCssStyles({ fontWeight: '500', color: 'var(--text-normal)' });
       if (href && value) {
         const linkEl = grid.createEl('a', { text: value, href });
         linkEl.setCssStyles({ color: 'var(--text-accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' });
         linkEl.addEventListener('click', (e) => { e.preventDefault(); window.open(href, '_blank'); });
       } else {
-        const valEl = grid.createEl('span', { text: value || '—' });
+        const valEl = grid.createSpan({ text: value || '—' });
         valEl.setCssStyles({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
       }
     };

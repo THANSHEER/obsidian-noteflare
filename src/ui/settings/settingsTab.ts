@@ -12,6 +12,14 @@ export class NoteFlareSettingsTab extends PluginSettingTab {
   public isCloudflareConnectFlowOpen = false;
   public hasInitializedWizard = false;
 
+  getSettingDefinitions() {
+    return [
+      { id: 'publish', name: 'Publish', description: 'Configure publishing to Cloudflare and GitHub Pages' },
+      { id: 'backup', name: 'Automated Backup', description: 'Configure automatic private repository backups' },
+      { id: 'connections', name: 'Connections', description: 'Manage connected GitHub and Cloudflare accounts' }
+    ];
+  }
+
   // Pending config across wizard steps
   public pendingName = '';
   public pendingScope: 'vault' | 'selected' = 'vault';
