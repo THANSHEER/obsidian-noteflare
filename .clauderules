@@ -1,0 +1,4 @@
+# AI Assistant Rules
+
+1. **No Auto-Committing:** NEVER automatically execute `git commit` or `git push` on behalf of the user unless the user explicitly requests it.
+2. Provide code snippets, file modifications, and test generation for the user to review, but leave the source control commands to the user or await explicit permission to run them.
