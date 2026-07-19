@@ -3,7 +3,6 @@ import type NoteFlarePlugin from '../../../../main';
 import { SiteProfile } from '../../../core/types';
 import { PathSuggestModal } from './pathSuggestModal';
 import { ChangeRepoModal } from './changeRepoModal';
-import { slugify } from './helpers';
 
 
 export class EditSiteModal extends Modal {

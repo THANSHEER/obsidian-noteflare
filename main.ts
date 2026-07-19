@@ -378,7 +378,7 @@ export default class NoteFlarePlugin extends Plugin {
         ...(this.liveStatus[site.id] ?? {}),
         loading: false,
         error: !repo ? 'GitHub repository not configured.' : 'GitHub account not connected.',
-      } as LiveSiteStatus;
+      };
       this.refreshView();
       return;
     }
@@ -395,7 +395,7 @@ export default class NoteFlarePlugin extends Plugin {
     this.liveStatus[site.id] = {
       ...(this.liveStatus[site.id] ?? {}),
       loading: true,
-    } as LiveSiteStatus;
+    };
     this.refreshView();
 
     try {
@@ -460,7 +460,7 @@ export default class NoteFlarePlugin extends Plugin {
         ...(this.liveStatus[site.id] ?? {}),
         loading: false,
         error: (err instanceof Error ? err.message : 'Status fetch failed'),
-      } as LiveSiteStatus;
+      };
     }
 
     this.refreshView();
@@ -514,7 +514,7 @@ function migrateSettings(
     ...DEFAULT_BACKUP_SETTINGS,
     ...(savedBackup ?? {}),
     repository: savedBackup?.repository ?? '',
-    repoVisibility: (savedBackup?.repoVisibility as 'private' | 'public' | undefined) ?? 'private',
+    repoVisibility: savedBackup?.repoVisibility ?? 'private',
     backupOnChange: savedBackup?.backupOnChange ?? true,
     lastBackupAt: savedBackup?.lastBackupAt ?? '',
   };
@@ -547,7 +547,7 @@ function migrateSettings(
         hostingProvider = legacyTarget === 'cloudflare' ? 'cloudflare' : 'github-pages';
       }
 
-      const { deployTarget: _dt, ...rest } = s as Record<string, unknown>;
+      const { deployTarget: _dt, ...rest } = s;
       void _dt; // consumed by migration above
 
       return createSiteProfile({
