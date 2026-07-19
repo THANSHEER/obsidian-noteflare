@@ -1,4 +1,4 @@
-import { App, normalizePath } from 'obsidian';
+import { App } from 'obsidian';
 import { GitHubApi } from '../api/githubApi';
 import { BackupResult, NoteFlareSettings, UploadFile } from '../core/types';
 
@@ -40,15 +40,16 @@ export class BackupEngine {
     }
 
     try {
+      const isPrivate = backup.repoVisibility !== 'public';
       let github = new GitHubApi(githubToken, githubOwner, backup.repository, 'main');
       const repositoryExists = await github.repoExists();
       if (!repositoryExists) {
-        this.onProgress('Preparing private backup storage…');
-        await github.createRepo(true);
+        this.onProgress('Preparing backup storage…');
+        await github.createRepo(isPrivate);
         if (!(await github.waitForRepo(30000))) {
-          throw new Error('Timed out while preparing private backup storage.');
+          throw new Error('Timed out while preparing backup storage.');
         }
-      } else if (!(await github.isRepoPrivate())) {
+      } else if (isPrivate && !(await github.isRepoPrivate())) {
         throw new Error(
           'Backup stopped because its storage location is public. Rename that repository in GitHub or make it private, then try again.',
         );
@@ -74,9 +75,9 @@ export class BackupEngine {
       }
 
       for (const path of remoteFiles.keys()) {
-        const existsButWasUnreadable =
-          this.isInBackupScope(path) && this.app.vault.getAbstractFileByPath(path) !== null;
-        if (!this.isIgnored(path) && !existsButWasUnreadable) {
+        // Skip deletion if the file still exists locally but was transiently unreadable.
+        const localFileExists = this.app.vault.getAbstractFileByPath(path) !== null;
+        if (!this.isIgnored(path) && !localFileExists) {
           uploads.push({ path, content: null });
         }
       }
@@ -106,12 +107,8 @@ export class BackupEngine {
 
   private async collectLocalFiles(): Promise<Map<string, LocalBackupFile>> {
     const files = new Map<string, LocalBackupFile>();
-    const folder = this.settings.backup.folder
-      ? normalizePath(this.settings.backup.folder)
-      : '';
 
     for (const file of this.app.vault.getFiles()) {
-      if (folder && file.path !== folder && !file.path.startsWith(`${folder}/`)) continue;
       if (this.isIgnored(file.path)) continue;
 
       try {
@@ -153,13 +150,6 @@ export class BackupEngine {
       }
       return path === pattern || path.endsWith('/' + pattern);
     });
-  }
-
-  private isInBackupScope(path: string): boolean {
-    const folder = this.settings.backup.folder
-      ? normalizePath(this.settings.backup.folder)
-      : '';
-    return !folder || path === folder || path.startsWith(`${folder}/`);
   }
 
   private toBase64(bytes: Uint8Array): string {

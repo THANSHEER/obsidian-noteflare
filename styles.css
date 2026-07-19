@@ -16,62 +16,6 @@
   gap: 16px;
 }
 
-/* Premium Publish Button */
-.noteflare-premium-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--interactive-accent) 15%, transparent), color-mix(in srgb, var(--interactive-accent) 5%, transparent));
-  border-radius: var(--radius-l);
-  border: 1px solid color-mix(in srgb, var(--interactive-accent) 20%, transparent);
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.noteflare-premium-hero h2 {
-  margin: 0 0 8px 0;
-  font-size: var(--font-ui-large);
-  font-weight: 700;
-  color: var(--text-normal);
-}
-
-.noteflare-premium-hero p {
-  margin: 0 0 24px 0;
-  font-size: var(--font-ui-small);
-  color: var(--text-muted);
-}
-
-.noteflare-btn-massive {
-  background: linear-gradient(135deg, var(--interactive-accent), color-mix(in srgb, var(--interactive-accent) 80%, black));
-  color: var(--text-on-accent);
-  border: none;
-  border-radius: var(--radius-xl);
-  padding: 14px 40px;
-  font-size: var(--font-ui-medium);
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.noteflare-btn-massive:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 12px 32px color-mix(in srgb, var(--interactive-accent) 45%, transparent);
-}
-
-.noteflare-btn-massive:active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
-}
-
-.noteflare-btn-massive:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
 
 /* Badges */
 .noteflare-badge {
@@ -97,3 +41,155 @@
   background: color-mix(in srgb, var(--background-modifier-border) 20%, transparent);
   border-color: var(--background-modifier-border);
 }
+
+/* ─── Wizard Step Dots ─────────────────────────────────────────────────────── */
+
+.nf-wizard-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 20px 0 8px;
+  margin-bottom: 8px;
+}
+
+.nf-step-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  flex: 1;
+  max-width: 100px;
+}
+
+/* Connector line between dots */
+.nf-step-dot:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: calc(50% + 10px);
+  right: calc(-50% + 10px);
+  height: 2px;
+  background: var(--background-modifier-border);
+  transition: background 0.3s ease;
+  z-index: 0;
+}
+
+.nf-step-dot.completed:not(:last-child)::after {
+  background: var(--interactive-accent);
+}
+
+/* The circle */
+.nf-step-dot::before {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.nf-step-dot.completed::before {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+.nf-step-dot.active::before {
+  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 20%, var(--background-primary));
+  transform: scale(1.2);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+
+.nf-step-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-weight: 500;
+  transition: color 0.25s ease;
+}
+
+.nf-step-dot.active .nf-step-label {
+  color: var(--interactive-accent);
+  font-weight: 600;
+}
+
+.nf-step-dot.completed .nf-step-label {
+  color: var(--text-normal);
+}
+
+
+/* ─── Cloudflare connect section ────────────────────────────────────────────── */
+
+.nf-cf-section {
+  border-left: 3px solid color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+  padding-left: 16px;
+  margin: 4px 0 12px;
+}
+
+/* ─── Connection status indicator ───────────────────────────────────────────── */
+
+.nf-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.nf-status-dot.connected {
+  background: var(--color-green);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-green) 25%, transparent);
+}
+
+.nf-status-dot.disconnected {
+  background: var(--text-faint);
+}
+
+/* ─── Hard Reset Footer ──────────────────────────────────────────────────────── */
+
+.nf-reset-footer {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* ─── CF Disconnect Warning Banner ───────────────────────────────────────── */
+
+.nf-cf-warn-banner {
+  margin: 8px 0 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-m);
+  border: 1px solid color-mix(in srgb, var(--color-orange) 40%, transparent);
+  background: color-mix(in srgb, var(--color-orange) 8%, var(--background-primary));
+}
+
+.nf-cf-warn-banner strong {
+  display: block;
+  color: var(--color-orange);
+  margin-bottom: 6px;
+}
+
+.nf-cf-warn-banner p {
+  margin: 0 0 10px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+/* ─── Restore Section ────────────────────────────────────────────────────── */
+
+.nf-restore-section {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-m);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 6%, var(--background-primary));
+}
+
+

@@ -5,7 +5,7 @@ export const DEFAULT_EXCLUDE_PATTERNS = ['private/**', '*.private.md', 'Template
 
 export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   repository: '',
-  folder: '',
+  repoVisibility: 'private',
   backupOnChange: true,
   intervalMinutes: 60,
   lastBackupAttemptAt: '',
@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS: NoteFlareSettings = {
   enablePublish: true,
   backup: { ...DEFAULT_BACKUP_SETTINGS },
   masterRepository: '',
+  masterRepositoryPrivate: false,
   defaultViewLocation: 'left',
 };
 
@@ -50,7 +51,9 @@ export function createSiteProfile(partial: Partial<SiteProfile> = {}): SiteProfi
     isPublished: false,
     lastPublished: '',
     lastNoteCount: 0,
-    deployTarget: 'cloudflare',
+    lastPublishFailed: false,
+    lastPublishError: '',
+    hostingProvider: 'cloudflare',
     ...partial,
   };
 }

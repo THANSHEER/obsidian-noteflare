@@ -1,67 +1,82 @@
 # Contributing to NoteFlare
 
-Thank you for your interest in contributing to NoteFlare! We welcome bug reports, feature requests, and pull requests.
+Welcome to the NoteFlare project! This guide explains the project structure and how to contribute effectively.
 
-## Prerequisites
+## Project Structure
 
-- [Node.js](https://nodejs.org/) (v16 or higher recommended)
-- [npm](https://npmjs.com/)
-- Obsidian desktop app
+NoteFlare has been restructured into modular components to make it easier to navigate and maintain.
 
-## Local Development Setup
+```
+obsidian-noteflare/
+├── main.ts                     # Orchestrator and entry point (Plugin subclass, events)
+└── src/
+    ├── api/                    # External service integrations
+    │   ├── githubApi.ts        # GitHub REST & Git Data API client
+    │   └── cloudflareApi.ts    # Cloudflare Pages API client
+    │
+    ├── backup/                 # Automatic vault mirror logic
+    │   ├── backupEngine.ts     # The core diff/delta sync engine
+    │   └── backupScheduler.ts  # Background scheduling and debounce logic
+    │
+    ├── core/                   # Shared types, settings, and constants
+    │   ├── constants.ts        # Build versions, workflow strings, extensions
+    │   ├── secureStore.ts      # Token encryption via Electron safeStorage
+    │   ├── settings.ts         # Default configurations
+    │   ├── types.ts            # TypeScript interfaces
+    │   └── vaultRegistry.ts    # Orphaned site recovery across installs
+    │
+    ├── publish/                # The publishing pipeline
+    │   ├── contentValidator.ts # Frontmatter inspection and auto-repair
+    │   ├── fileCollector.ts    # Vault walker matching scope & globs
+    │   ├── publisher.ts        # The main build manifest and commit orchestrator
+    │   └── transformer.ts      # Markdown processing before upload
+    │
+    └── ui/                     # User interface components
+        ├── noteflareView.ts    # The side panel / main view for publish controls
+        ├── statusBar.ts        # Typed progress strings for the bottom bar
+        │
+        └── settings/           # Settings tab and modular UI components
+            ├── settingsTab.ts  # The NoteFlareSettingsTab router class
+            ├── settingsHelpers.ts # Shared UI helper functions
+            │
+            ├── wizard/         # The first-time setup flow
+            │   ├── wizardRenderer.ts
+            │   ├── stepGitHub.ts
+            │   ├── stepHosting.ts
+            │   ├── stepBackup.ts
+            │   └── stepDone.ts
+            │
+            ├── manage/         # The active configuration panel
+            │   ├── index.ts
+            │   ├── connectionsSection.ts
+            │   ├── backupSection.ts
+            │   ├── sitesSection.ts
+            │   └── restoreSection.ts
+            │
+            └── modals/         # All popups and dialogs
+                ├── index.ts
+                ├── addSiteModal.ts
+                ├── removeSiteModal.ts
+                ├── editSiteModal.ts
+                ├── unpublishModals.ts
+                ├── resetModal.ts
+                ├── changeRepoModal.ts
+                └── pathSuggestModal.ts
+```
 
-To work on NoteFlare locally, you should clone the repository directly into your Obsidian vault's plugin folder.
+## Adding New Features
 
-1. Open your terminal and navigate to your vault's plugins folder:
-   ```bash
-   cd /path/to/your/vault/.obsidian/plugins/
-   ```
+1. **Modals:** Create new modals in `src/ui/settings/modals/` and re-export them via `index.ts`.
+2. **Settings UI:** If adding a new setting, incorporate it into the appropriate section inside `src/ui/settings/manage/`.
+3. **Logic:** Keep UI files strictly focused on rendering. Use classes in `src/core/`, `src/publish/`, or `src/backup/` for business logic.
 
-2. Clone this repository:
-   ```bash
-   git clone https://github.com/your-username/obsidian-noteflare.git
-   cd obsidian-noteflare
-   ```
+## Building and Testing
 
-3. Install dependencies:
-   ```bash
-   npm install
-   ```
+```bash
+npm install            # Install dependencies
+npm run dev            # Run esbuild watch (auto-rebuilds main.js on save)
+npm run build          # Create production bundle
+npm test               # Run Jest unit tests
+```
 
-## Running the Plugin
-
-We use `esbuild` for fast, iterative development.
-
-- **Development Build (Watch Mode):**
-  ```bash
-  npm run dev
-  ```
-  This command will watch for changes in the `src/` directory and rebuild `main.js` automatically (with inline sourcemaps). 
-  *Note:* You still need to reload the plugin in Obsidian (Settings -> Community plugins -> toggle NoteFlare off and on) or reload the entire app (`Ctrl/Cmd + R`) to see the changes.
-
-- **Production Build:**
-  ```bash
-  npm run build
-  ```
-  This command runs the TypeScript compiler (`tsc -noEmit -skipLibCheck`) to type-check your code, and then creates a minified production bundle. 
-
-> **Important:** There is no separate linting step or test framework. The only quality gate is the type-check performed during `npm run build`. Please ensure your code passes the build before submitting a PR.
-
-## Code Structure
-
-- `main.ts`: The entry point, orchestrator, and plugin shell.
-- `src/api/`: GitHub and Cloudflare API clients.
-- `src/core/`: Types, settings, constants, and secure storage wrappers.
-- `src/publish/`: The core publish pipeline, file collector, and content transformer.
-- `src/backup/`: The local-authoritative backup engine.
-- `src/ui/`: NoteFlare's UI, including the main view, status bar, and settings modals.
-
-## Pull Request Guidelines
-
-1. **Fork the repository** and create your branch from `main`.
-2. **Make your changes** and ensure they build successfully (`npm run build`).
-3. **Keep changes focused.** Try to address a single issue or feature per PR.
-4. **Do not hand-edit `main.js`.** It is a bundled output file. Edit the `.ts` files in the `src/` directory.
-5. Submit your PR with a clear description of the problem you are solving and the changes you've made.
-
-We review pull requests on a regular basis. Thank you for making NoteFlare better!
+Remember to reload the plugin in Obsidian to see your changes!

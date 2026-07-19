@@ -1,10 +1,27 @@
 import { ItemView, WorkspaceLeaf, setIcon, Setting } from 'obsidian';
-import { AddSiteModal, UnpublishModal, EditSiteModal, RemoveSiteModal, PathSuggestModal } from './settings/siteModals';
+import { AddSiteModal, UnpublishModal, EditSiteModal, RemoveSiteModal, PathSuggestModal, GitHubPagesUnpublishModal } from './settings/modals';
 import type NoteFlarePlugin from '../../main';
+import type { LiveSiteStatus } from '../../main';
+import { SiteProfile } from '../core/types';
+
 
 export const VIEW_TYPE_NOTEFLARE = 'noteflare-panel';
 
 const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
+
+/** Format an ISO date string to a relative time like "3 min ago". */
+function relativeTime(iso: string): string {
+  if (!iso) return '';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  if (isNaN(diffMs)) return '';
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 /**
  * Focused publishing panel. Backup runs quietly in the background and is
@@ -29,6 +46,9 @@ export class NoteFlareView extends ItemView {
 
   async onOpen(): Promise<void> {
     await this.render();
+    // Fetch live status in background when panel opens.
+    const site = this.plugin.getActiveSite();
+    if (site) void this.plugin.fetchLiveStatus(site);
   }
 
   async onClose(): Promise<void> {
@@ -69,7 +89,7 @@ export class NoteFlareView extends ItemView {
           : 'Your first backup will run automatically.',
         cls: 'setting-item-description',
       });
-      const settingsButton = backup.createEl('button', { text: 'Backup settings', cls: 'mod-cta' });
+      const settingsButton = backup.createEl('button', { text: 'Backup options', cls: 'mod-cta' });
       settingsButton.setCssStyles({ marginTop: '10px' });
       settingsButton.addEventListener('click', () => this.plugin.openSettingsTab());
     }
@@ -91,23 +111,25 @@ export class NoteFlareView extends ItemView {
       return;
     }
 
+    // ── Single source of truth: derive all status from persisted SiteProfile ──
+    const isPublishing = !!this.plugin.publishInProgress[site.id];
+    const hasFailed = site.lastPublishFailed && !isPublishing;
+    const isLive = site.isPublished && !hasFailed;
+    const live = this.plugin.liveStatus[site.id] ?? null;
 
-
-    // ── Header: Site switcher, Status, Add Site ───────────────────────────────
-    const isLive = site.isPublished;
+    // ── Header: Site switcher ─────────────────────────────────────────────────
     new Setting(root)
-      .setName('Current Site')
-      .setDesc(`Status: ${isLive ? '🟢 Live' : '⚪ Offline'}`)
+      .setName('Current site')
       .addDropdown(d => {
         for (const sp of s.sites) {
           d.addOption(sp.id, sp.name || sp.githubRepo);
         }
         d.setValue(site.id);
-        d.onChange(async id => {
+        d.onChange((id) => { void (async () => {
           s.activeSiteId = id;
           await this.plugin.saveSettings();
           void this.render();
-        });
+        })(); });
       })
       .addButton(b => {
         b.setIcon('plus').setTooltip('Create another site').onClick(() => {
@@ -115,7 +137,25 @@ export class NoteFlareView extends ItemView {
         });
       });
 
-    // ── Site Publish Settings ────────────────────────────────────────────────
+    // ── Live Status Dashboard ─────────────────────────────────────────────────
+    this.renderStatusDashboard(root, site, isLive, hasFailed, isPublishing, live);
+
+    // ── Cloudflare reconnect warning ─────────────────────────────────────────
+    if (
+      site.hostingProvider === 'cloudflare' &&
+      site.lastPublishError &&
+      /disconnect|git account/i.test(site.lastPublishError)
+    ) {
+      const warnBanner = root.createDiv('nf-cf-warn-banner');
+      warnBanner.createEl('strong', { text: '⚠ Cloudflare disconnected from GitHub' });
+      warnBanner.createEl('p', {
+        text: 'Your last build failed because Cloudflare lost access to your GitHub repository. Click below to re-authorize, then publish again.',
+      });
+      const reconnectBtn = warnBanner.createEl('button', { text: 'Re-authorize Cloudflare ↗', cls: 'mod-cta' });
+      reconnectBtn.addEventListener('click', () => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
+    }
+
+    // ── Site Publish Scope ───────────────────────────────────────────────────
     let updateVisibility: () => void;
 
     new Setting(root)
@@ -125,17 +165,17 @@ export class NoteFlareView extends ItemView {
         d.addOption('vault', 'Full Vault');
         d.addOption('selected', 'Selected Files/Folders');
         d.setValue(site.publishScope || 'vault');
-        d.onChange(async v => {
+        d.onChange((v) => { void (async () => {
           site.publishScope = v as 'vault' | 'selected';
           updateVisibility();
           await this.plugin.saveSettings();
-        });
+        })(); });
       });
 
     const pathsContainer = root.createDiv('noteflare-paths-container');
     pathsContainer.setCssStyles({
-      paddingLeft: '1.5em',
-      paddingRight: '1.5em',
+      paddingLeft: '0',
+      paddingRight: '0',
       paddingBottom: '1em'
     });
     
@@ -230,81 +270,320 @@ export class NoteFlareView extends ItemView {
 
     // ── Advanced Customization ──────────────────────────────────────────────
     new Setting(root)
-      .setName('Advanced Settings')
+      .setName('Advanced')
       .setDesc('Configure metadata, styling, and exclusions for this site.')
       .addButton(b => {
-        b.setButtonText('Edit settings').onClick(() => {
+        b.setButtonText('Edit').onClick(() => {
           new EditSiteModal(this.app, this.plugin, site, () => this.refresh()).open();
         });
       });
 
-    // ── Status and Deploy Info ───────────────────────────────────────────────
-    const deployTarget = site.deployTarget ?? (s.cloudflareToken ? 'cloudflare' : 'github-actions');
-    const targetLabel = deployTarget === 'cloudflare' ? 'Cloudflare Pages' : 'GitHub Actions';
-    
-    const deploySetting = new Setting(root)
-      .setName('Deployment Info')
-      .setDesc(`Deploy: ${targetLabel}`);
+    // ── Actions ──────────────────────────────────────────────────────────────
+    this.renderActions(root, site, isLive, hasFailed, isPublishing);
+  }
 
-    if (site.siteUrl) {
-      deploySetting.addButton(b => {
-        b.setIcon('external-link').setButtonText('Open Site').onClick(() => {
-          window.open(`https://${site.siteUrl}`, '_blank');
-        });
+  /** Render the live status dashboard card. */
+  private renderStatusDashboard(
+    root: HTMLElement,
+    site: SiteProfile,
+    isLive: boolean,
+    hasFailed: boolean,
+    isPublishing: boolean,
+    live: LiveSiteStatus | null,
+  ): void {
+    const card = root.createDiv('nf-status-card');
+    card.setCssStyles({
+      marginBottom: '12px',
+      padding: '12px 14px',
+      border: '1px solid var(--background-modifier-border)',
+      borderRadius: 'var(--radius-m)',
+      backgroundColor: 'var(--background-primary-alt)',
+    });
+
+    // ── Row 1: Status badge + Refresh ────────────────────────────────────────
+    const headerRow = card.createDiv();
+    headerRow.setCssStyles({
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: '10px',
+    });
+
+    // Derive the badge from single source of truth
+    let badgeEmoji = '⚪';
+    let badgeText = 'Offline';
+    let badgeColor = 'var(--text-muted)';
+
+    if (isPublishing) {
+      badgeEmoji = '🔵';
+      badgeText = 'Publishing…';
+      badgeColor = 'var(--text-accent)';
+    } else if (hasFailed) {
+      badgeEmoji = '🔴';
+      badgeText = 'Last publish failed';
+      badgeColor = 'var(--text-error)';
+    } else if (isLive) {
+      // If we have live data, show the actual workflow conclusion
+      if (live && !live.loading && live.workflowStatus === 'completed') {
+        if (live.workflowConclusion === 'success') {
+          badgeEmoji = '🟢';
+          badgeText = 'Live';
+          badgeColor = 'var(--text-success)';
+        } else if (live.workflowConclusion === 'failure') {
+          badgeEmoji = '🔴';
+          badgeText = site.hostingProvider === 'cloudflare' ? 'Build failed on Cloudflare' : 'Build failed on GitHub';
+          badgeColor = 'var(--text-error)';
+        } else if (live.workflowConclusion === 'cancelled') {
+          badgeEmoji = '🟡';
+          badgeText = 'Build cancelled';
+          badgeColor = 'var(--color-yellow)';
+        }
+      } else if (live && live.workflowStatus === 'in_progress') {
+        badgeEmoji = '🔵';
+        badgeText = site.hostingProvider === 'cloudflare' ? 'Building on Cloudflare…' : 'Building on GitHub…';
+        badgeColor = 'var(--text-accent)';
+      } else {
+        badgeEmoji = '🟢';
+        badgeText = 'Live';
+        badgeColor = 'var(--text-success)';
+      }
+    }
+
+    const badgeEl = headerRow.createEl('span');
+    badgeEl.setCssStyles({ fontWeight: '600', color: badgeColor, fontSize: 'var(--font-ui-medium)' });
+    badgeEl.setText(`${badgeEmoji} ${badgeText}`);
+
+    // Refresh button (right side)
+    const refreshBtn = headerRow.createEl('button', { text: live?.loading ? '…' : '↻ Refresh' });
+    refreshBtn.setCssStyles({ fontSize: 'var(--font-ui-smaller)', padding: '2px 8px' });
+    if (live?.loading) refreshBtn.setAttr('disabled', 'true');
+    refreshBtn.addEventListener('click', () => {
+      const s = this.plugin.getActiveSite();
+      if (s) void this.plugin.fetchLiveStatus(s);
+    });
+
+    // ── Row 2: Details grid ───────────────────────────────────────────────────
+    const grid = card.createDiv();
+    grid.setCssStyles({
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '6px 16px',
+      fontSize: 'var(--font-ui-smaller)',
+      color: 'var(--text-muted)',
+    });
+
+    const addRow = (label: string, value: string, href?: string) => {
+      const labelEl = grid.createEl('span', { text: label });
+      labelEl.setCssStyles({ fontWeight: '500', color: 'var(--text-normal)' });
+      if (href && value) {
+        const linkEl = grid.createEl('a', { text: value, href });
+        linkEl.setCssStyles({ color: 'var(--text-accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' });
+        linkEl.addEventListener('click', (e) => { e.preventDefault(); window.open(href, '_blank'); });
+      } else {
+        const valEl = grid.createEl('span', { text: value || '—' });
+        valEl.setCssStyles({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+      }
+    };
+
+    // Site URL
+    addRow('Site URL', site.siteUrl ? site.siteUrl : '—', site.siteUrl ? `https://${site.siteUrl.replace(/^https?:\/\//, '')}` : undefined);
+
+    // Host
+    const hostLabel = site.hostingProvider === 'cloudflare' ? 'Cloudflare Pages'
+      : site.hostingProvider === 'github-pages' ? 'GitHub Pages'
+      : site.hostingProvider;
+    addRow('Host', hostLabel);
+
+    if (live && !live.loading) {
+      // Repository link
+      addRow(
+        'Repository',
+        `${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`,
+        live.repoHtmlUrl || `https://github.com/${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`,
+      );
+
+      // Last push time
+      addRow('Last push', live.repoPushedAt ? relativeTime(live.repoPushedAt) : '—');
+
+      // Commit
+      if (live.commitSha) {
+        addRow(
+          'Last commit',
+          `${live.commitSha}${live.commitMessage ? ` — ${live.commitMessage.slice(0, 40)}` : ''}`,
+          live.commitSha ? `https://github.com/${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}/commits` : undefined,
+        );
+        addRow('Committed', relativeTime(live.commitDate));
+      }
+
+      // Workflow run
+      if ((site.hostingProvider === 'github-pages' || site.hostingProvider === 'cloudflare') && live.workflowStatus) {
+        const wfLabel = live.workflowStatus === 'in_progress' ? '🔄 Building…'
+          : live.workflowConclusion === 'success' ? '✅ Passed'
+          : live.workflowConclusion === 'failure' ? '❌ Failed'
+          : live.workflowConclusion === 'cancelled' ? '⛔ Cancelled'
+          : live.workflowStatus;
+        addRow('Build', wfLabel, live.workflowUrl || undefined);
+        addRow('Build ran', relativeTime(live.workflowUpdatedAt));
+      }
+
+      // Fetched at
+      if (live.fetchedAt) {
+        const fetchedEl = card.createEl('p', { text: `Status fetched ${relativeTime(live.fetchedAt)}` });
+        fetchedEl.setCssStyles({ margin: '8px 0 0 0', fontSize: 'var(--font-ui-smaller)', color: 'var(--text-faint)' });
+      }
+    } else if (live?.loading) {
+      const loadingEl = card.createEl('p', { text: 'Fetching live status…' });
+      loadingEl.setCssStyles({ margin: '6px 0 0 0', fontSize: 'var(--font-ui-smaller)', color: 'var(--text-muted)' });
+    } else {
+      // No live data yet — show cached info
+      addRow(
+        'Repository',
+        `${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`,
+        `https://github.com/${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`,
+      );
+      if (site.lastPublished) {
+        addRow('Last published', relativeTime(site.lastPublished));
+        addRow('Notes', String(site.lastNoteCount));
+      }
+    }
+
+    // ── Error display ────────────────────────────────────────────────────────
+    if (hasFailed && site.lastPublishError) {
+      const errEl = card.createEl('p', { text: `⚠ ${site.lastPublishError}` });
+      errEl.setCssStyles({
+        margin: '8px 0 0 0',
+        fontSize: 'var(--font-ui-smaller)',
+        color: 'var(--text-error)',
+        wordBreak: 'break-word',
       });
     }
 
-    if (deployTarget === 'cloudflare') {
-      new Setting(root)
-        .setName('GitHub Connection')
-        .setDesc('If Cloudflare says "Disconnected from Git", click here to grant access to your repository.')
-        .addButton(b => b.setButtonText('Grant Access').onClick(() => {
-          window.open(CLOUDFLARE_APP_URL, '_blank');
-        }));
+    // ── Backup status ────────────────────────────────────────────────────────
+    if (this.plugin.settings.enableBackup) {
+      const backupEl = card.createEl('p');
+      backupEl.setCssStyles({ margin: '8px 0 0 0', fontSize: 'var(--font-ui-smaller)', color: 'var(--text-muted)', borderTop: '1px solid var(--background-modifier-border)', paddingTop: '8px' });
+      const backupText = this.plugin.settings.backup.lastBackupError
+        ? `Backup: ⚠ ${this.plugin.settings.backup.lastBackupError}`
+        : this.plugin.settings.backup.lastBackupAt
+          ? `Backup: ✓ ${relativeTime(this.plugin.settings.backup.lastBackupAt)}`
+          : 'Backup: not run yet';
+      backupEl.setText(backupText);
     }
+  }
 
-    // ── Actions ──────────────────────────────────────────────────────────────
-    const actionSetting = new Setting(root).setName('Actions');
+  /** Render the Publish / Unpublish / Delete action buttons. */
+  private renderActions(
+    root: HTMLElement,
+    site: SiteProfile,
+    isLive: boolean,
+    hasFailed: boolean,
+    isPublishing: boolean,
+  ): void {
+    const actionBox = root.createDiv('nf-actions-box');
+    actionBox.setCssStyles({
+      marginTop: '8px',
+      padding: '12px',
+      border: '1px solid var(--background-modifier-border)',
+      backgroundColor: 'var(--background-primary-alt)',
+      borderRadius: 'var(--radius-s)',
+      marginBottom: '15px'
+    });
+
+    const actionHeading = new Setting(actionBox).setName('Actions').setHeading();
+    actionHeading.settingEl.setCssStyles({ border: 'none', padding: '0', marginBottom: '12px' });
     
+    const actionSetting = new Setting(actionBox);
+    actionSetting.settingEl.setCssStyles({ border: 'none', padding: '0' });
+    actionSetting.infoEl.setCssStyles({ display: 'none' });
     actionSetting.controlEl.setCssStyles({
       display: 'flex',
       flexDirection: 'row',
       gap: '8px',
       flexWrap: 'wrap',
-      justifyContent: 'flex-end'
+      justifyContent: 'flex-end',
+      width: '100%'
     });
+
+    // ── Button label: single source of truth from persisted SiteProfile ──────
+    // hasFailed → "Republish"
+    // isLive (never failed) → "Update"
+    // never published → "Publish"
+    const publishLabel = isPublishing
+      ? 'Publishing…'
+      : hasFailed
+        ? 'Republish'
+        : isLive
+          ? 'Update'
+          : 'Publish';
+
+    const hostingProvider = site.hostingProvider;
 
     actionSetting
       .addButton(b => {
-        b.setButtonText('Publish')
-         .setCta()
-         .onClick(async () => {
-           b.setDisabled(true);
-           b.setButtonText('Publishing...');
-           try {
-             await this.plugin.doPublish();
-           } finally {
-             b.setDisabled(false);
-             b.setButtonText('Publish');
-           }
-         });
+        b.setButtonText(publishLabel);
+        if (isPublishing) {
+          b.setDisabled(true);
+        } else {
+          b.setCta();
+        }
+        b.onClick(() => { void (async () => {
+          b.setDisabled(true);
+          b.setButtonText('Publishing…');
+          try {
+            await this.plugin.doPublish();
+          } finally {
+            void this.render();
+          }
+        })(); });
       })
       .addButton(b => {
-        b.setButtonText('Unpublish');
-        if (!site.isPublished) b.setDisabled(true);
-        else b.setDestructive();
+        if (hostingProvider === 'cloudflare') {
+          b.setButtonText('Unpublish');
+          if (!isLive || isPublishing) {
+            b.setDisabled(true);
+          } else {
+            b.buttonEl.addClass('mod-warning');
+          }
+          b.onClick(() => {
+            new UnpublishModal(this.app, this.plugin, () => this.refresh()).open();
+          });
+        } else {
+          // GitHub Pages cannot be paused via API.
+          b.setButtonText('Unpublish (Manual)');
+          if (!isLive || isPublishing) {
+            b.setDisabled(true);
+          } else {
+            b.buttonEl.addClass('mod-warning');
+          }
+          b.onClick(() => {
+            void (async () => {
+              // Mark the site offline locally so the panel reflects the change.
+              // The user must still manually disable GitHub Pages in their repo
+              // settings — this just keeps NoteFlare's state consistent.
+              site.isPublished = false;
+              await this.plugin.saveSettings();
+              new GitHubPagesUnpublishModal(
+                this.app,
+                `https://github.com/${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}/settings/pages`,
+              ).open();
+              this.refresh();
+            })();
+          });
+        }
+      })
+      .addButton(b => {
+        const deleteTooltip = hostingProvider === 'cloudflare'
+          ? 'Removes the Cloudflare Pages project (API) and the site folder from GitHub'
+          : 'Removes the site folder from GitHub. GitHub Pages link may remain — disable it manually in repo Settings → Pages';
+        b.setButtonText('Delete');
+        b.setTooltip(deleteTooltip);
+        if (isPublishing) b.setDisabled(true);
+        else b.buttonEl.addClass('mod-warning');
         b.onClick(() => {
-          new UnpublishModal(this.app, this.plugin, () => this.refresh()).open();
+          new RemoveSiteModal(this.app, this.plugin, site, () => {
+            this.refresh();
+          }).open();
         });
-      })
-      .addButton(b => {
-        b.setButtonText('Delete')
-         .setDestructive()
-         .onClick(() => {
-           new RemoveSiteModal(this.app, this.plugin, site, () => {
-             this.refresh();
-           }).open();
-         });
       });
   }
 }

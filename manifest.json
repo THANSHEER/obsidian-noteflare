@@ -1,10 +1,11 @@
 {
   "id": "noteflare",
   "name": "NoteFlare",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.15.0",
   "description": "Publish notes as a website and protect your vault with automatic private backups.",
   "author": "THANSHEER",
   "authorUrl": "https://github.com/THANSHEER",
+  "fundingUrl": "https://github.com/sponsors/THANSHEER",
   "isDesktopOnly": true
 }

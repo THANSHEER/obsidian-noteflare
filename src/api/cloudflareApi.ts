@@ -44,16 +44,20 @@ export class CloudflareApi {
       const data = (resp.json ?? {}) as CloudflareApiError;
       if (resp.status >= 400) {
         const message = data.errors?.[0]?.message ?? this.messageForStatus(resp.status);
-        throw new Error(message);
+        const err = new Error(message) as Error & { status?: number };
+        err.status = resp.status;
+        throw err;
       }
 
       return data as T;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '';
       if (message.toLowerCase().includes('failed to fetch')) {
-        throw new Error(
+        const fetchErr = new Error(
           'Could not reach Cloudflare. Check your internet connection, firewall, or proxy, then try again.',
-        );
+        ) as Error & { status?: number };
+        fetchErr.status = 500;
+        throw fetchErr;
       }
       throw err;
     }
@@ -196,10 +200,31 @@ export class CloudflareApi {
     );
   }
 
+  /**
+   * Pause a Cloudflare Pages deployment — takes the site offline without
+   * deleting the project or any content. `enableDeployment` restores it.
+   * This is the correct backend for "Unpublish".
+   */
+  async disableDeployment(name: string): Promise<void> {
+    await this.request(
+      `/accounts/${this.accountId}/pages/projects/${name}`,
+      'PATCH',
+      {
+        deployment_configs: { production: { deployment_enabled: false } },
+      },
+    );
+  }
+
   async deleteProject(name: string): Promise<void> {
     await this.request(
       `/accounts/${this.accountId}/pages/projects/${name}`,
       'DELETE',
+    );
+  }
+
+  async listDeployments(name: string): Promise<{ result?: Array<Record<string, unknown>> }> {
+    return this.request<{ result?: Array<Record<string, unknown>> }>(
+      `/accounts/${this.accountId}/pages/projects/${name}/deployments`,
     );
   }
 }
