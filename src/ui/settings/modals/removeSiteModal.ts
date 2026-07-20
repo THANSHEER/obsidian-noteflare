@@ -86,6 +86,13 @@ export class RemoveSiteModal extends Modal {
                 await cf.deleteProject(this.site.cloudflareProject);
               } catch (e) {
                 console.warn('NoteFlare: could not delete Cloudflare project:', e);
+                // Non-fatal: local cleanup still proceeds, but warn the user so they
+                // can manually remove the orphaned project from the Cloudflare dashboard.
+                new Notice(
+                  `Could not delete the Cloudflare Pages project "${this.site.cloudflareProject}" automatically. ` +
+                  `Please remove it manually at dash.cloudflare.com → Workers & Pages.`,
+                  10000,
+                );
               }
             }
 

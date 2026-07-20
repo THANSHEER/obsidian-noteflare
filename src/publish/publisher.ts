@@ -46,6 +46,9 @@ export class Publisher {
         this.settings.githubOwner,
         repo,
       );
+      // Side-effect: update stored branch and privacy from GitHub's actual values.
+      // These mutations are intentional — they self-heal stale stored data and
+      // persist via saveSettings() in main.ts regardless of publish outcome.
       branch = await probe.getDefaultBranch();
       this.site.githubBranch = branch;
 

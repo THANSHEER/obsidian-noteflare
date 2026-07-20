@@ -26,22 +26,8 @@ export class AddSiteModal extends Modal {
         t.onChange(v => { name = v; });
       });
 
-    let hostingProvider: SiteProfile['hostingProvider'] = 'github-pages';
-    const cfConnected = !!this.plugin.settings.cloudflareToken;
-
-    new Setting(this.contentEl)
-      .setName('Hosting provider')
-      .setDesc('Where to host this site.')
-      .addDropdown(d => {
-        d.addOption('github-pages', 'GitHub Pages');
-        if (cfConnected) {
-          d.addOption('cloudflare', 'Cloudflare Pages');
-        }
-        d.setValue(hostingProvider);
-        d.onChange(v => {
-          hostingProvider = v as SiteProfile['hostingProvider'];
-        });
-      });
+    // Cloudflare Pages is the only supported hosting provider.
+    const hostingProvider: SiteProfile['hostingProvider'] = 'cloudflare';
 
     new Setting(this.contentEl)
       .setName('Publish scope')
