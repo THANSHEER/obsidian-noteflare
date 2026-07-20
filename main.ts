@@ -399,9 +399,12 @@ export default class NoteFlarePlugin extends Plugin {
     this.refreshView();
 
     try {
+      // Cloudflare sites have no GitHub Actions deploy.yml workflow —
+      // skip that fetch and use the Cloudflare deployments API for status instead.
+      const isCloudflareSite = site.hostingProvider === 'cloudflare';
       const [repoInfo, workflowRun, latestCommit] = await Promise.all([
         github.getRepoInfo(),
-        github.getLatestWorkflowRun('deploy.yml'),
+        isCloudflareSite ? Promise.resolve(null) : github.getLatestWorkflowRun('deploy.yml'),
         github.getLatestCommit(branch),
       ]);
 
@@ -410,7 +413,7 @@ export default class NoteFlarePlugin extends Plugin {
       let cfWorkflowUrl = workflowRun?.htmlUrl ?? '';
       let cfWorkflowUpdatedAt = workflowRun?.updatedAt ?? '';
 
-      if (site.hostingProvider === 'cloudflare' && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
+      if (isCloudflareSite && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
         try {
           const cf = new CloudflareApi(this.settings.cloudflareToken, this.settings.cloudflareAccount);
           const cfDeployments = await cf.listDeployments(site.cloudflareProject);

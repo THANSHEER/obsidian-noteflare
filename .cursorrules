@@ -2,3 +2,5 @@
 
 1. **No Auto-Committing:** NEVER automatically execute `git commit` or `git push` on behalf of the user unless the user explicitly requests it.
 2. Provide code snippets, file modifications, and test generation for the user to review, but leave the source control commands to the user or await explicit permission to run them.
+3. **minAppVersion:** NEVER set `minAppVersion` above `1.9.0` in `manifest.json` or `versions.json` without explicit user confirmation that they have upgraded Obsidian. The developer runs Obsidian v1.9.12 — a higher `minAppVersion` causes "No appropriate version found" and blocks plugin installation. Always keep `manifest.json` and `versions.json` in sync.
+4. **Publish target is Cloudflare Pages only:** The active deployment setup is vault → GitHub (private content repo) → Cloudflare Pages (builds + hosts public site). Do NOT add, suggest, or configure GitHub Actions workflows for publishing. `SiteProfile.deployTarget` must remain `'cloudflare'`.

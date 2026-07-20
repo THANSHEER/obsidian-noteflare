@@ -45,24 +45,6 @@ export function renderSitesSection(tab: NoteFlareSettingsTab, el: HTMLElement): 
             .setName(site.name || site.cloudflareProject || 'Site')
             .setDesc(`${isLive ? '🟢 Live' : '⚪ Offline'} · ${providerLabel} · ${statusText}`);
 
-          const cfConnected = !!tab.plugin.settings.cloudflareToken;
-          siteSetting.addDropdown((d) => {
-            d.addOption('github-pages', 'GitHub Pages');
-            if (cfConnected) {
-              d.addOption('cloudflare', 'Cloudflare Pages');
-            }
-            // Only set 'cloudflare' if the option exists; otherwise fall back to github-pages.
-            const storedProvider = site.hostingProvider || 'github-pages';
-            d.setValue(cfConnected ? storedProvider : 'github-pages');
-            d.onChange((v) => {
-              void (async () => {
-                site.hostingProvider = v as 'github-pages' | 'cloudflare';
-                await tab.plugin.saveSettings();
-                tab.render();
-              })();
-            });
-          });
-
           if (site.siteUrl) {
             siteSetting.addExtraButton((b) =>
               b

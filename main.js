@@ -4410,7 +4410,7 @@ function cloudflareSetupHint(rawMessage, repoSlug) {
   }
   return `Couldn't create the Pages project. Most likely the Cloudflare GitHub App isn't authorized for ${repoSlug} yet \u2014 use \u201CAuthorize Cloudflare on GitHub\u201D, grant access to that repo, then try again. (Cloudflare said: ${rawMessage})`;
 }
-async function provisionSite(plugin, name, profileParams, hostingProvider = "github-pages") {
+async function provisionSite(plugin, name, profileParams, hostingProvider = "cloudflare") {
   const slug = slugify(name);
   if (!slug)
     throw new Error("Please enter a site name.");
@@ -4420,20 +4420,13 @@ async function provisionSite(plugin, name, profileParams, hostingProvider = "git
     throw new Error("Please configure a Master Repository in settings first.");
   const site = createSiteProfile({
     name,
-    hostingProvider,
+    hostingProvider: "cloudflare",
     ...profileParams
   });
   const gh = new GitHubApi(plugin.settings.githubToken, owner, repo);
   await gh.createRepo();
   if (!await gh.waitForRepo(3e4)) {
     throw new Error("Repository creation timed out \u2014 please try again.");
-  }
-  if (hostingProvider === "github-pages") {
-    try {
-      await gh.enableGitHubPages();
-    } catch (e) {
-      console.warn("Could not auto-enable GitHub Pages:", e);
-    }
   }
   let branch = "main";
   try {
@@ -4442,23 +4435,19 @@ async function provisionSite(plugin, name, profileParams, hostingProvider = "git
   }
   site.githubBranch = branch;
   site.githubRepo = repo;
+  const cf = new CloudflareApi(plugin.settings.cloudflareToken, plugin.settings.cloudflareAccount);
+  const rootDir = `sites/${site.id}`;
+  const projectName = slugify(`${repo}-${slug}`);
   let siteUrl = "";
-  if (hostingProvider === "github-pages") {
-    siteUrl = `${owner}.github.io/${repo}`;
-  } else {
-    const cf = new CloudflareApi(plugin.settings.cloudflareToken, plugin.settings.cloudflareAccount);
-    const rootDir = `sites/${site.id}`;
-    const projectName = slugify(`${repo}-${slug}`);
+  try {
+    siteUrl = await cf.createProject(projectName, owner, repo, branch, rootDir);
+    site.cloudflareProject = projectName;
+  } catch (createErr) {
     try {
-      siteUrl = await cf.createProject(projectName, owner, repo, branch, rootDir);
+      siteUrl = await cf.getProject(projectName);
       site.cloudflareProject = projectName;
-    } catch (createErr) {
-      try {
-        siteUrl = await cf.getProject(projectName);
-        site.cloudflareProject = projectName;
-      } catch (e) {
-        throw new Error(cloudflareSetupHint(createErr.message, `${owner}/${repo}`));
-      }
+    } catch (e) {
+      throw new Error(cloudflareSetupHint(createErr.message, `${owner}/${repo}`));
     }
   }
   site.siteUrl = siteUrl;
@@ -4491,11 +4480,11 @@ var CLOUDFLARE_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages/i
 var CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
 function renderStepHosting(tab, el) {
   const heading = new import_obsidian8.Setting(el);
-  heading.setName("Choose hosting & create your site");
+  heading.setName("Set up Cloudflare Pages & create your site");
   heading.setHeading();
   el.createEl("p", {
     cls: "setting-item-description",
-    text: "Pick where NoteFlare should host your site. GitHub Pages is free and works out of the box. Cloudflare adds a global CDN and instant deploy controls."
+    text: "NoteFlare publishes to Cloudflare Pages \u2014 a free global CDN with instant deploy controls. You'll need a free Cloudflare account."
   });
   let siteName = tab.pendingName || "my-notes";
   new import_obsidian8.Setting(el).setName("Site name").setDesc("Used for your repository and site address. Lowercase letters, numbers, and dashes.").addText((text) => {
@@ -4512,17 +4501,6 @@ function renderStepHosting(tab, el) {
     text.onChange((v) => {
       masterRepo = v.trim();
       updateCfAppHint();
-    });
-  });
-  let selectedProvider = tab.pendingProvider;
-  new import_obsidian8.Setting(el).setName("Hosting provider").setDesc("GitHub Pages is free with no extra setup. Cloudflare Pages adds a CDN and real-time deploy controls (requires a free Cloudflare account).").addDropdown((d) => {
-    d.addOption("github-pages", "GitHub Pages (free, no setup required)");
-    d.addOption("cloudflare", "Cloudflare Pages (CDN, deploy controls)");
-    d.setValue(selectedProvider);
-    d.onChange((v) => {
-      selectedProvider = v;
-      tab.pendingProvider = selectedProvider;
-      cfSection.setCssStyles({ display: selectedProvider === "cloudflare" ? "block" : "none" });
     });
   });
   let scope = tab.pendingScope;
@@ -4573,8 +4551,6 @@ function renderStepHosting(tab, el) {
     });
   };
   renderPaths();
-  const cfSection = el.createDiv("nf-cf-section");
-  cfSection.setCssStyles({ display: selectedProvider === "cloudflare" ? "block" : "none" });
   let cfToken = tab.plugin.settings.cloudflareToken;
   let cfAccount = tab.plugin.settings.cloudflareAccount;
   let cfAppHintEl = null;
@@ -4585,20 +4561,20 @@ function renderStepHosting(tab, el) {
       );
     }
   };
-  new import_obsidian8.Setting(cfSection).setName("1. Create a Cloudflare API token").setDesc("Creates a token with Pages, Workers, and Account permissions pre-filled.").addButton((b) => {
+  new import_obsidian8.Setting(el).setName("1. Create a Cloudflare API token").setDesc("Creates a token with Pages, Workers, and Account permissions pre-filled.").addButton((b) => {
     b.setButtonText("Create Token \u2197");
     b.onClick(() => {
       window.open(CLOUDFLARE_TOKEN_URL, "_blank");
     });
   });
-  const cfAppSetting = new import_obsidian8.Setting(cfSection).setName("2. Authorize Cloudflare on GitHub").setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || "noteflare-sites"}`).addButton((b) => {
+  const cfAppSetting = new import_obsidian8.Setting(el).setName("2. Authorize Cloudflare on GitHub").setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || "noteflare-sites"}`).addButton((b) => {
     b.setButtonText("Authorize \u2197");
     b.onClick(() => {
       window.open(CLOUDFLARE_APP_URL, "_blank");
     });
   });
   cfAppHintEl = cfAppSetting.descEl;
-  new import_obsidian8.Setting(cfSection).setName("Cloudflare API token").setDesc("Stored encrypted in your OS keychain.").addText((t) => {
+  new import_obsidian8.Setting(el).setName("Cloudflare API token").setDesc("Stored encrypted in your OS keychain.").addText((t) => {
     t.setPlaceholder("Paste API token\u2026");
     t.inputEl.type = "password";
     t.setValue(cfToken);
@@ -4606,7 +4582,7 @@ function renderStepHosting(tab, el) {
       cfToken = v.trim();
     });
   });
-  new import_obsidian8.Setting(cfSection).setName("Cloudflare account ID").setDesc("Optional \u2014 detected automatically from your token.").addText((t) => {
+  new import_obsidian8.Setting(el).setName("Cloudflare account ID").setDesc("Optional \u2014 detected automatically from your token.").addText((t) => {
     t.setPlaceholder("Auto-detected");
     t.setValue(cfAccount);
     t.onChange((v) => {
@@ -4629,29 +4605,26 @@ function renderStepHosting(tab, el) {
           return showError(errorEl, "Please enter a site name.");
         if (!masterRepo.trim())
           return showError(errorEl, "Please enter a repository name.");
-        if (selectedProvider === "cloudflare" && !cfToken) {
+        if (!cfToken)
           return showError(errorEl, "Please paste your Cloudflare API token.");
-        }
         hideError(errorEl);
         busy(btn, "Setting up\u2026");
         try {
           tab.plugin.settings.masterRepository = masterRepo.trim();
-          if (selectedProvider === "cloudflare") {
-            let accountId = cfAccount;
-            if (!accountId) {
-              busy(btn, "Detecting Cloudflare account\u2026");
-              accountId = await new CloudflareApi(cfToken, "").getAccountId();
-            }
-            tab.plugin.settings.cloudflareToken = cfToken;
-            tab.plugin.settings.cloudflareAccount = accountId;
-            await tab.plugin.saveSettings();
+          let accountId = cfAccount;
+          if (!accountId) {
+            busy(btn, "Detecting Cloudflare account\u2026");
+            accountId = await new CloudflareApi(cfToken, "").getAccountId();
           }
+          tab.plugin.settings.cloudflareToken = cfToken;
+          tab.plugin.settings.cloudflareAccount = accountId;
+          await tab.plugin.saveSettings();
           busy(btn, "Creating your site\u2026");
           const site = await provisionSite(
             tab.plugin,
             siteName,
             { publishScope: scope, publishPaths: paths },
-            selectedProvider
+            "cloudflare"
           );
           tab.plugin.settings.sites.push(site);
           tab.plugin.settings.activeSiteId = site.id;
@@ -4660,7 +4633,7 @@ function renderStepHosting(tab, el) {
           tab.pendingName = siteName;
           tab.pendingScope = scope;
           tab.pendingPaths = paths;
-          tab.pendingProvider = selectedProvider;
+          tab.pendingProvider = "cloudflare";
           tab.wizardStep = "backup";
           tab.render();
         } catch (err) {
@@ -4852,6 +4825,7 @@ var VaultRegistry = class _VaultRegistry {
       name: site.name,
       masterRepository,
       githubOwner,
+      githubRepo: site.githubRepo,
       githubBranch: site.githubBranch,
       cloudflareProject: site.cloudflareProject,
       siteUrl: site.siteUrl,
@@ -5200,18 +5174,7 @@ var AddSiteModal = class extends import_obsidian14.Modal {
         name = v;
       });
     });
-    let hostingProvider = "github-pages";
-    const cfConnected = !!this.plugin.settings.cloudflareToken;
-    new import_obsidian14.Setting(this.contentEl).setName("Hosting provider").setDesc("Where to host this site.").addDropdown((d) => {
-      d.addOption("github-pages", "GitHub Pages");
-      if (cfConnected) {
-        d.addOption("cloudflare", "Cloudflare Pages");
-      }
-      d.setValue(hostingProvider);
-      d.onChange((v) => {
-        hostingProvider = v;
-      });
-    });
+    const hostingProvider = "cloudflare";
     new import_obsidian14.Setting(this.contentEl).setName("Publish scope").setDesc("Configure what to publish: the entire vault or selected files/folders.").addDropdown((d) => {
       d.addOption("vault", "Full Vault");
       d.addOption("selected", "Selected Files/Folders");
@@ -5391,6 +5354,10 @@ var RemoveSiteModal = class extends import_obsidian15.Modal {
               await cf.deleteProject(this.site.cloudflareProject);
             } catch (e) {
               console.warn("NoteFlare: could not delete Cloudflare project:", e);
+              new import_obsidian15.Notice(
+                `Could not delete the Cloudflare Pages project "${this.site.cloudflareProject}" automatically. Please remove it manually at dash.cloudflare.com \u2192 Workers & Pages.`,
+                1e4
+              );
             }
           }
           try {
@@ -5769,22 +5736,6 @@ function renderSitesSection(tab, el) {
         const providerLabel = site.hostingProvider === "cloudflare" ? "Cloudflare Pages" : "GitHub Pages";
         const statusText = site.lastPublished ? `Last published ${new Date(site.lastPublished).toLocaleString()} \xB7 ${site.lastNoteCount} notes` : "Not published yet";
         const siteSetting = new import_obsidian20.Setting(el).setName(site.name || site.cloudflareProject || "Site").setDesc(`${isLive ? "\u{1F7E2} Live" : "\u26AA Offline"} \xB7 ${providerLabel} \xB7 ${statusText}`);
-        const cfConnected = !!tab.plugin.settings.cloudflareToken;
-        siteSetting.addDropdown((d) => {
-          d.addOption("github-pages", "GitHub Pages");
-          if (cfConnected) {
-            d.addOption("cloudflare", "Cloudflare Pages");
-          }
-          const storedProvider = site.hostingProvider || "github-pages";
-          d.setValue(cfConnected ? storedProvider : "github-pages");
-          d.onChange((v) => {
-            void (async () => {
-              site.hostingProvider = v;
-              await tab.plugin.saveSettings();
-              tab.render();
-            })();
-          });
-        });
         if (site.siteUrl) {
           siteSetting.addExtraButton(
             (b) => b.setIcon("external-link").setTooltip("Open site").onClick(() => {
@@ -6971,16 +6922,17 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
     };
     this.refreshView();
     try {
+      const isCloudflareSite = site.hostingProvider === "cloudflare";
       const [repoInfo, workflowRun, latestCommit] = await Promise.all([
         github.getRepoInfo(),
-        github.getLatestWorkflowRun("deploy.yml"),
+        isCloudflareSite ? Promise.resolve(null) : github.getLatestWorkflowRun("deploy.yml"),
         github.getLatestCommit(branch)
       ]);
       let cfWorkflowStatus = (_c = workflowRun == null ? void 0 : workflowRun.status) != null ? _c : "";
       let cfWorkflowConclusion = (_d = workflowRun == null ? void 0 : workflowRun.conclusion) != null ? _d : "";
       let cfWorkflowUrl = (_e = workflowRun == null ? void 0 : workflowRun.htmlUrl) != null ? _e : "";
       let cfWorkflowUpdatedAt = (_f = workflowRun == null ? void 0 : workflowRun.updatedAt) != null ? _f : "";
-      if (site.hostingProvider === "cloudflare" && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
+      if (isCloudflareSite && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
         try {
           const cf = new CloudflareApi(this.settings.cloudflareToken, this.settings.cloudflareAccount);
           const cfDeployments = await cf.listDeployments(site.cloudflareProject);

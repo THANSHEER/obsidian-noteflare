@@ -34,10 +34,8 @@ With a few clicks, you can turn your vault into a stunning, fully-functional web
 ### One-Click Publishing
 Instantly turn your vault, a specific folder, or a single note into a beautiful, free website. NoteFlare automatically structures your content, applies metadata, and handles the deployment pipeline.
 
-### Dual Deployment Engines
-Tailor your hosting to your needs:
-- **Cloudflare Pages:** Lightning-fast global CDN with automated, zero-config build triggers.
-- **GitHub Actions & Pages:** The classic, reliable static hosting method running directly on your GitHub infrastructure.
+### Cloudflare Pages Hosting
+Your site is built and served by **Cloudflare Pages** — lightning-fast global CDN with automated, zero-config build triggers. NoteFlare pushes your content to a private GitHub repository, and Cloudflare Pages automatically picks it up, runs the [mdgarden](https://www.npmjs.com/package/mdgarden) build, and deploys your site. No terminal, no CI config needed.
 
 ### Private Local-Authoritative Backup
 Never lose a note again. NoteFlare provides a strict one-way mirror from your local vault to a private GitHub repository. Set it to sync automatically after edits, or on a recurring schedule.

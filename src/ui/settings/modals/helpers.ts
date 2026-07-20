@@ -41,12 +41,16 @@ export function cloudflareSetupHint(rawMessage: string, repoSlug: string): strin
  * it. The first publish commits the user's content plus a mdgarden
  * package.json/config, which Cloudflare builds with `npx mdgarden build`. Reuses
  * the shared GitHub/Cloudflare credentials already on the plugin settings.
+ *
+ * NoteFlare supports Cloudflare Pages only — the GitHub Pages code path has been
+ * removed. The `hostingProvider` parameter is retained for type compatibility
+ * with existing SiteProfile data.
  */
 export async function provisionSite(
   plugin: NoteFlarePlugin,
   name: string,
   profileParams: Partial<SiteProfile>,
-  hostingProvider: SiteProfile['hostingProvider'] = 'github-pages',
+  hostingProvider: SiteProfile['hostingProvider'] = 'cloudflare',
 ): Promise<SiteProfile> {
   const slug = slugify(name);
   if (!slug) throw new Error('Please enter a site name.');
@@ -57,7 +61,7 @@ export async function provisionSite(
 
   const site = createSiteProfile({
     name,
-    hostingProvider,
+    hostingProvider: 'cloudflare',
     ...profileParams,
   });
 
@@ -67,49 +71,34 @@ export async function provisionSite(
     throw new Error('Repository creation timed out — please try again.');
   }
 
-  if (hostingProvider === 'github-pages') {
-    try {
-      await gh.enableGitHubPages();
-    } catch (e: unknown) {
-      // Don't fail setup, just let them know they might need to do it manually
-      console.warn('Could not auto-enable GitHub Pages:', e);
-    }
-  }
-
   let branch = 'main';
   try {
     branch = await gh.getDefaultBranch();
   } catch {
-    // Keep the branch.
+    // Keep the default branch.
   }
   site.githubBranch = branch;
   site.githubRepo = repo;
 
+  // Cloudflare Pages: create (or recover) a Pages project.
+  const cf = new CloudflareApi(plugin.settings.cloudflareToken, plugin.settings.cloudflareAccount);
+  const rootDir = `sites/${site.id}`;
+  // Make project name unique since multiple sites share the same repo.
+  const projectName = slugify(`${repo}-${slug}`);
   let siteUrl = '';
-
-  if (hostingProvider === 'github-pages') {
-    // GitHub Pages URL is deterministic — no API call needed.
-    siteUrl = `${owner}.github.io/${repo}`;
-    // cloudflareProject intentionally left blank for GitHub Pages sites.
-  } else {
-    // Cloudflare Pages: create (or recover) a Pages project.
-    const cf = new CloudflareApi(plugin.settings.cloudflareToken, plugin.settings.cloudflareAccount);
-    const rootDir = `sites/${site.id}`;
-    // Make project name unique since multiple sites share the same repo
-    const projectName = slugify(`${repo}-${slug}`);
+  try {
+    siteUrl = await cf.createProject(projectName, owner, repo, branch, rootDir);
+    site.cloudflareProject = projectName;
+  } catch (createErr: unknown) {
     try {
-      siteUrl = await cf.createProject(projectName, owner, repo, branch, rootDir);
+      siteUrl = await cf.getProject(projectName);
       site.cloudflareProject = projectName;
-    } catch (createErr: unknown) {
-      try {
-        siteUrl = await cf.getProject(projectName);
-        site.cloudflareProject = projectName;
-      } catch {
-        throw new Error(cloudflareSetupHint((createErr as Error).message, `${owner}/${repo}`));
-      }
+    } catch {
+      throw new Error(cloudflareSetupHint((createErr as Error).message, `${owner}/${repo}`));
     }
   }
 
   site.siteUrl = siteUrl;
   return site;
 }
+

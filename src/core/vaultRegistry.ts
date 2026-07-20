@@ -60,6 +60,7 @@ export class VaultRegistry {
       name: site.name,
       masterRepository,
       githubOwner,
+      githubRepo: site.githubRepo,
       githubBranch: site.githubBranch,
       cloudflareProject: site.cloudflareProject,
       siteUrl: site.siteUrl,

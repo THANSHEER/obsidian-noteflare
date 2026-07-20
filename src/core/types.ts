@@ -49,6 +49,7 @@ export interface RegistryEntry {
   name: string;
   masterRepository: string;
   githubOwner: string;
+  githubRepo: string;
   githubBranch: string;
   cloudflareProject: string;
   siteUrl: string;

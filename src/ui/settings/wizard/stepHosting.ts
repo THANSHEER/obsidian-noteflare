@@ -10,15 +10,15 @@ const CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
 
 export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): void {
     const heading = new Setting(el);
-    heading.setName('Choose hosting & create your site');
+    heading.setName('Set up Cloudflare Pages & create your site');
     heading.setHeading();
 
     el.createEl('p', {
       cls: 'setting-item-description',
-      text: 'Pick where NoteFlare should host your site. GitHub Pages is free and works out of the box. Cloudflare adds a global CDN and instant deploy controls.',
+      text: "NoteFlare publishes to Cloudflare Pages — a free global CDN with instant deploy controls. You'll need a free Cloudflare account.",
     });
 
-    // Site name
+    // ── Site name ─────────────────────────────────────────────────────────────
     let siteName = tab.pendingName || 'my-notes';
     new Setting(el)
       .setName('Site name')
@@ -28,10 +28,11 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
         text.setValue(siteName);
         text.onChange((v) => {
           siteName = v;
+          // Hint doesn't reference siteName, but update in case subclass overrides.
         });
       });
 
-    // Master repo name
+    // ── Master repo name ──────────────────────────────────────────────────────
     let masterRepo = tab.plugin.settings.masterRepository || 'noteflare-sites';
     new Setting(el)
       .setName('GitHub repository name')
@@ -41,31 +42,11 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
         text.setValue(masterRepo);
         text.onChange((v) => {
           masterRepo = v.trim();
-          // Keep the CF authorize hint in sync with what the user types
           updateCfAppHint();
         });
       });
 
-    // ── Hosting provider selector ────────────────────────────────────────────
-    // This writes tab.pendingProvider so the rest of the wizard knows the choice.
-    let selectedProvider = tab.pendingProvider;
-
-    new Setting(el)
-      .setName('Hosting provider')
-      .setDesc('GitHub Pages is free with no extra setup. Cloudflare Pages adds a CDN and real-time deploy controls (requires a free Cloudflare account).')
-      .addDropdown((d) => {
-        d.addOption('github-pages', 'GitHub Pages (free, no setup required)');
-        d.addOption('cloudflare', 'Cloudflare Pages (CDN, deploy controls)');
-        d.setValue(selectedProvider);
-        d.onChange((v) => {
-          selectedProvider = v as 'github-pages' | 'cloudflare';
-          tab.pendingProvider = selectedProvider;
-          // Show/hide CF credentials section based on the chosen provider
-          cfSection.setCssStyles({ display: selectedProvider === 'cloudflare' ? 'block' : 'none' });
-        });
-      });
-
-    // Publish scope
+    // ── Publish scope ─────────────────────────────────────────────────────────
     let scope = tab.pendingScope;
     let paths = [...tab.pendingPaths];
 
@@ -114,16 +95,11 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
     };
     renderPaths();
 
-    // ── Cloudflare credentials section ──────────────────────────────────────
-    // Only visible when the user selects Cloudflare as the hosting provider.
-    const cfSection = el.createDiv('nf-cf-section');
-    cfSection.setCssStyles({ display: selectedProvider === 'cloudflare' ? 'block' : 'none' });
-
+    // ── Cloudflare credentials ────────────────────────────────────────────────
     let cfToken = tab.plugin.settings.cloudflareToken;
     let cfAccount = tab.plugin.settings.cloudflareAccount;
 
-    // Keep a reference to the CF App authorize hint element so we can update
-    // it in real-time when the user changes the repository name above.
+    // Live-update the Authorize button description as the user edits the repo name.
     let cfAppHintEl: HTMLElement | null = null;
     const updateCfAppHint = () => {
       if (cfAppHintEl) {
@@ -133,7 +109,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
       }
     };
 
-    new Setting(cfSection)
+    new Setting(el)
       .setName('1. Create a Cloudflare API token')
       .setDesc('Creates a token with Pages, Workers, and Account permissions pre-filled.')
       .addButton((b) => {
@@ -141,17 +117,16 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
         b.onClick(() => { window.open(CLOUDFLARE_TOKEN_URL, '_blank'); });
       });
 
-    const cfAppSetting = new Setting(cfSection)
+    const cfAppSetting = new Setting(el)
       .setName('2. Authorize Cloudflare on GitHub')
       .setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || 'noteflare-sites'}`)
       .addButton((b) => {
         b.setButtonText('Authorize ↗');
         b.onClick(() => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
       });
-    // Store description element ref for live updates when masterRepo field changes
     cfAppHintEl = cfAppSetting.descEl;
 
-    new Setting(cfSection)
+    new Setting(el)
       .setName('Cloudflare API token')
       .setDesc('Stored encrypted in your OS keychain.')
       .addText((t) => {
@@ -161,7 +136,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
         t.onChange((v) => { cfToken = v.trim(); });
       });
 
-    new Setting(cfSection)
+    new Setting(el)
       .setName('Cloudflare account ID')
       .setDesc('Optional — detected automatically from your token.')
       .addText((t) => {
@@ -184,34 +159,29 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
             const nameSlug = slugify(siteName);
             if (!nameSlug) return showError(errorEl, 'Please enter a site name.');
             if (!masterRepo.trim()) return showError(errorEl, 'Please enter a repository name.');
-            if (selectedProvider === 'cloudflare' && !cfToken) {
-              return showError(errorEl, 'Please paste your Cloudflare API token.');
-            }
+            if (!cfToken) return showError(errorEl, 'Please paste your Cloudflare API token.');
             hideError(errorEl);
             busy(btn, 'Setting up…');
 
             try {
-              // Save master repo name before provisioning
               tab.plugin.settings.masterRepository = masterRepo.trim();
 
-              // Resolve Cloudflare account if Cloudflare was chosen
-              if (selectedProvider === 'cloudflare') {
-                let accountId = cfAccount;
-                if (!accountId) {
-                  busy(btn, 'Detecting Cloudflare account…');
-                  accountId = await new CloudflareApi(cfToken, '').getAccountId();
-                }
-                tab.plugin.settings.cloudflareToken = cfToken;
-                tab.plugin.settings.cloudflareAccount = accountId;
-                await tab.plugin.saveSettings();
+              // Auto-detect Cloudflare account ID from token if not provided.
+              let accountId = cfAccount;
+              if (!accountId) {
+                busy(btn, 'Detecting Cloudflare account…');
+                accountId = await new CloudflareApi(cfToken, '').getAccountId();
               }
+              tab.plugin.settings.cloudflareToken = cfToken;
+              tab.plugin.settings.cloudflareAccount = accountId;
+              await tab.plugin.saveSettings();
 
               busy(btn, 'Creating your site…');
               const site = await provisionSite(
                 tab.plugin,
                 siteName,
                 { publishScope: scope, publishPaths: paths },
-                selectedProvider,
+                'cloudflare',
               );
               tab.plugin.settings.sites.push(site);
               tab.plugin.settings.activeSiteId = site.id;
@@ -221,7 +191,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
               tab.pendingName = siteName;
               tab.pendingScope = scope;
               tab.pendingPaths = paths;
-              tab.pendingProvider = selectedProvider;
+              tab.pendingProvider = 'cloudflare';
               tab.wizardStep = 'backup';
               tab.render();
             } catch (err: unknown) {
