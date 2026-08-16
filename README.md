@@ -7,10 +7,12 @@
   *Powered by the [mdgarden](https://www.npmjs.com/package/mdgarden) static site generator.*
 
   [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/THANSHEER/obsidian-noteflare?style=for-the-badge&logo=github)](https://github.com/THANSHEER/obsidian-noteflare/releases)
+  [![GitHub stars](https://img.shields.io/github/stars/THANSHEER/obsidian-noteflare?style=for-the-badge&logo=github&color=yellow)](https://github.com/THANSHEER/obsidian-noteflare/stargazers)
   [![Obsidian Downloads](https://img.shields.io/badge/Obsidian-Community_Plugin-7A36F4?style=for-the-badge&logo=obsidian)](https://obsidian.md/plugins)
   [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-blue.svg?style=for-the-badge)](https://github.com/THANSHEER/obsidian-noteflare/blob/main/LICENSE)
+  [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/P0R02009G7)
 
-  [Overview](#overview) • [Features](#key-features) • [Installation](#installation) • [Getting Started](#getting-started) • [Contributing](#contributing)
+  [Overview](#overview) • [Features](#key-features) • [Installation](#installation) • [Getting Started](#getting-started) • [Support](#support) • [Contributing](#contributing)
 
 </div>
 
@@ -95,6 +97,18 @@ Tailor your site structure, backup frequency, and deployment hooks directly insi
 ## Architecture under the hood
 
 NoteFlare utilizes the powerful **mdgarden** open-source static site generator as its build engine. When you hit publish, NoteFlare seamlessly prepares your Markdown, resolves local Obsidian `[[wikilinks]]` and attachments, and packages a build manifest. This is securely pushed to GitHub where your chosen CI/CD pipeline takes over. 
+
+---
+
+## Support
+
+If NoteFlare helps your workflow, you can support development on Ko-fi:
+
+<div align="center">
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/P0R02009G7)
+
+</div>
 
 ---
 

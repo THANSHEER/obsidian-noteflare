@@ -83,13 +83,50 @@ jobs:
             manifest.json
             styles.css
 
+      - name: Extract release notes and title from CHANGELOG.md
+        if: steps.check.outputs.bump == 'true'
+        id: changelog
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          if [ ! -f CHANGELOG.md ]; then
+            echo "CHANGELOG.md not found!"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os, re, sys
+          version = os.environ["VERSION"]
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          pattern = re.compile(r"^## \[" + re.escape(version) + r"\].*?(?=^## \[|\Z)", re.M | re.S)
+          match = pattern.search(text)
+          if not match:
+              print(f"No changelog entry found for version {version}", file=sys.stderr)
+              sys.exit(1)
+          lines = match.group(0).splitlines()
+          while lines and lines[-1].strip() in ("", "---"):
+              lines.pop()
+          # Section headers (### Features, ### Fixes, ...) aren't release titles —
+          # always name the release after the version itself.
+          title = f"v{version}"
+          notes = "\n".join(lines).strip()
+          with open("release_notes.txt", "w", encoding="utf-8") as f:
+              f.write(notes + "\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"title={title}\n")
+          PY
+          {
+            echo 'notes<<EOF'
+            cat release_notes.txt
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         if: steps.check.outputs.bump == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.check.outputs.version }}
-          name: ${{ steps.check.outputs.version }}
-          generate_release_notes: true
+          name: ${{ steps.changelog.outputs.title }}
+          body: ${{ steps.changelog.outputs.notes }}
           files: |
             main.js
             manifest.json

@@ -26,17 +26,11 @@ No breaking changes.
 
 ## [1.1.3] - 2026-07-20
 
-### v1.1.3 - Cloudflare Made Simple
-
-NoteFlare now focuses entirely on Cloudflare Pages for publishing, making setup simpler and site info more consistent, plus several small reliability fixes.
-
-**What's Better**
-
+### Improvements
 - Setup is simpler now that Cloudflare Pages is the only hosting option
 - Removing a site now warns you if anything needs manual cleanup on Cloudflare
 
-**What's Fixed**
-
+### Fixes
 - Fixed new sites sometimes being set up with the wrong hosting type
 - Fixed site status not loading correctly for some sites
 - Fixed some sites losing their saved connection info after reinstalling the plugin
@@ -52,17 +46,11 @@ No breaking changes.
 
 ## [1.1.2] - 2026-07-19
 
-### v1.1.2 - Smoother Setup, Fewer Bugs
-
-A small follow-up release focused on reliability — settings are easier to read and saved sites restore more consistently.
-
-**What's Better**
-
+### Improvements
 - Settings screen is easier to read, with clearer groupings for related options
 - Restoring a previously configured site now works more reliably
 
-**What's Fixed**
-
+### Fixes
 - Fixed an issue that could show incorrect information while restoring a site's settings
 
 ---
@@ -75,18 +63,12 @@ No breaking changes.
 
 ## [1.1.1] - 2026-07-19
 
-### v1.1.1 - Smarter Setup and Site Management
-
-Setting up and managing your published sites is now easier and more reliable, with a redesigned setup wizard and a live status view.
-
-**What's New**
-
+### Features
 - Redesigned setup wizard walks you through choosing a host and setting up your site
 - Previously published sites are restored automatically when you reinstall the plugin
 - New live status view shows whether your site is published and up to date
 
-**What's Better**
-
+### Improvements
 - Editing publishing rules and deleting or unpublishing a site is clearer and safer
 - Unpublishing a site now just takes it offline instead of deleting your content
 - More reliable handling of publish failures, with clearer messages when something goes wrong
@@ -101,12 +83,7 @@ No breaking changes.
 
 ## [1.0.0] - 2026-07-05
 
-### v1.0.0 - NoteFlare Launches
-
-The first release of NoteFlare. Turn your Obsidian vault into a free website, and keep an automatic private backup — all without leaving Obsidian.
-
-**What's New**
-
+### Features
 - Publish your whole vault, a folder, or a single note as a free public website
 - Automatic private backup keeps a safe copy of your vault after edits or on a schedule
 - Guided setup walks you through connecting your accounts and choosing what to publish
