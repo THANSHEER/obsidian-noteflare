@@ -103,6 +103,11 @@ export interface NoteFlareSettings {
   backup: BackupSettings;
   /** Where the NoteFlare panel should open by default. */
   defaultViewLocation?: 'left' | 'right' | 'tab';
+  /**
+   * Last plugin version the user has been shown update notes for.
+   * Empty on first install; compared to `manifest.version` on load.
+   */
+  lastSeenVersion: string;
 }
 
 /**
