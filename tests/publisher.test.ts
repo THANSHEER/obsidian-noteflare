@@ -38,6 +38,7 @@ describe('Publisher and Error Recovery Tests', () => {
       enableBackup: false,
       sites: [],
       backup: {} as any,
+      lastSeenVersion: '',
     };
 
     site = {

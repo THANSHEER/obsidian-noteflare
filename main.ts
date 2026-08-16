@@ -11,6 +11,8 @@ import { BackupScheduler } from './src/backup/backupScheduler';
 import { VaultRegistry } from './src/core/vaultRegistry';
 import { GitHubApi } from './src/api/githubApi';
 import { CloudflareApi } from './src/api/cloudflareApi';
+import { GeekstashApi } from './src/api/geekstashApi';
+import { UninstallFeedbackModal, WhatsNewModal } from './src/ui/feedback';
 
 export interface LiveSiteStatus {
   loading: boolean;
@@ -32,6 +34,7 @@ export default class NoteFlarePlugin extends Plugin {
   statusBar!: StatusBar;
   private ribbonEl: HTMLElement | null = null;
   private backupInProgress = false;
+  private hasCheckedForUpdateNotes = false;
   /** In-progress publish tracking (in-memory only, cleared on success/fail). */
   publishInProgress: Record<string, boolean> = {};
   /** Live GitHub status cache (in-memory, refreshed on panel open/refresh). */
@@ -98,6 +101,56 @@ export default class NoteFlarePlugin extends Plugin {
     this.addSettingTab(new NoteFlareSettingsTab(this.app, this));
     
     new BackupScheduler(this).registerAutomation();
+
+    // After UI is ready, surface GitHub release notes when the plugin version changed.
+    this.app.workspace.onLayoutReady(() => {
+      void this.checkForUpdateNotes();
+    });
+  }
+
+  onunload(): void {
+    // Obsidian does not provide a dedicated uninstall callback here, so this runs
+    // on plugin unload/disable while the workspace is still interactively open.
+    // Skip during app quit / vault switch when a modal would be noisy or invisible.
+    if (!this.app.workspace.layoutReady) return;
+    try {
+      new UninstallFeedbackModal(this.app).open();
+    } catch (e) {
+      console.warn('NoteFlare: could not open uninstall feedback:', e);
+    }
+  }
+
+  /** Show What's New when manifest.version differs from the last acknowledged version. */
+  private async checkForUpdateNotes(): Promise<void> {
+    if (this.hasCheckedForUpdateNotes) return;
+    this.hasCheckedForUpdateNotes = true;
+
+    const current = this.manifest.version;
+    const previous = this.settings.lastSeenVersion;
+
+    if (!previous) {
+      // Fresh install: record version, skip the update dialog.
+      // Existing vaults upgrading into version-tracking still get one What's New.
+      if (!this.settings.setupComplete) {
+        this.settings.lastSeenVersion = current;
+        await this.saveSettings();
+        return;
+      }
+    } else if (previous === current) {
+      return;
+    }
+
+    this.settings.lastSeenVersion = current;
+    await this.saveSettings();
+
+    let release: Awaited<ReturnType<typeof GeekstashApi.fetchReleaseNotes>> = null;
+    try {
+      release = await GeekstashApi.fetchReleaseNotes(current);
+    } catch (e) {
+      console.warn('NoteFlare: could not fetch release notes:', e);
+    }
+
+    new WhatsNewModal(this.app, current, release).open();
   }
 
   /** The currently-selected site, or the first one, or null when none exist. */
@@ -510,6 +563,7 @@ function migrateSettings(
   settings.activeSiteId = str(loaded.activeSiteId);
   settings.enableBackup = loaded.enableBackup === true;
   settings.enablePublish = loaded.enablePublish !== false; // default true
+  settings.lastSeenVersion = str(loaded.lastSeenVersion);
   const savedBackup = typeof loaded.backup === 'object' && loaded.backup !== null
     ? loaded.backup as Partial<NoteFlareSettings['backup']>
     : null;

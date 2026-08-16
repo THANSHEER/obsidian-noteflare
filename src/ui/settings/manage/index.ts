@@ -2,3 +2,4 @@ export { renderConnectionsSection, openCloudflareConnectFlow } from './connectio
 export { renderBackupSection } from './backupSection';
 export { renderSitesSection } from './sitesSection';
 export { renderRestoreFromRegistry } from './restoreSection';
+export { renderFeedbackSection } from './feedbackSection';

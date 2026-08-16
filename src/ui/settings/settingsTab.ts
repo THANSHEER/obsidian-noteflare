@@ -2,7 +2,12 @@ import { App, PluginSettingTab, Setting } from 'obsidian';
 import type NoteFlarePlugin from '../../../main';
 import { SetupStep } from '../../core/types';
 import { renderWizard } from './wizard/wizardRenderer';
-import { renderConnectionsSection, renderBackupSection, renderSitesSection } from './manage';
+import {
+  renderConnectionsSection,
+  renderBackupSection,
+  renderSitesSection,
+  renderFeedbackSection,
+} from './manage';
 import { openCloudflareConnectFlow } from './manage/connectionsSection';
 import { ResetModal } from './modals';
 
@@ -16,7 +21,8 @@ export class NoteFlareSettingsTab extends PluginSettingTab {
     return [
       { id: 'publish', name: 'Publish', description: 'Configure publishing to Cloudflare and GitHub Pages' },
       { id: 'backup', name: 'Automated Backup', description: 'Configure automatic private repository backups' },
-      { id: 'connections', name: 'Connections', description: 'Manage connected GitHub and Cloudflare accounts' }
+      { id: 'connections', name: 'Connections', description: 'Manage connected GitHub and Cloudflare accounts' },
+      { id: 'feedback', name: 'Feedback', description: 'Send feedback or request a feature' },
     ];
   }
 
@@ -64,6 +70,8 @@ export class NoteFlareSettingsTab extends PluginSettingTab {
         catch (e) { this.renderSectionError(containerEl, 'Backup', e); }
         try { renderSitesSection(this, containerEl); }
         catch (e) { this.renderSectionError(containerEl, 'Sites', e); }
+        try { renderFeedbackSection(this, containerEl); }
+        catch (e) { this.renderSectionError(containerEl, 'Feedback', e); }
       }
     } catch (err: unknown) {
       this.renderSectionError(containerEl, 'Settings', err);

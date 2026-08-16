@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS: NoteFlareSettings = {
   masterRepository: '',
   masterRepositoryPrivate: false,
   defaultViewLocation: 'left',
+  lastSeenVersion: '',
 };
 
 /** Build a fresh site profile with sensible defaults. */

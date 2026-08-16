@@ -3126,7 +3126,8 @@ var init_settings = __esm({
       backup: { ...DEFAULT_BACKUP_SETTINGS },
       masterRepository: "",
       masterRepositoryPrivate: false,
-      defaultViewLocation: "left"
+      defaultViewLocation: "left",
+      lastSeenVersion: ""
     };
   }
 });
@@ -3137,7 +3138,7 @@ __export(main_exports, {
   default: () => NoteFlarePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian23 = require("obsidian");
+var import_obsidian28 = require("obsidian");
 
 // src/api/githubApi.ts
 var import_obsidian = require("obsidian");
@@ -3816,6 +3817,10 @@ var import_obsidian3 = require("obsidian");
 var import_micromatch = __toESM(require_micromatch());
 
 // src/core/constants.ts
+var KOFI_URL = "https://ko-fi.com/P0R02009G7";
+var KOFI_BUTTON_LABEL = "Support me on Ko-fi";
+var KOFI_BUTTON_COLOR = "#000000";
+var KOFI_WIDGET_SCRIPT = "https://storage.ko-fi.com/cdn/widget/Widget_2.js";
 var ATTACHMENT_EXTS = /* @__PURE__ */ new Set([
   "png",
   "jpg",
@@ -4302,7 +4307,7 @@ var Publisher = class {
 init_settings();
 
 // src/ui/settings/settingsTab.ts
-var import_obsidian21 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 
 // src/ui/settings/wizard/stepGitHub.ts
 var import_obsidian6 = require("obsidian");
@@ -5765,8 +5770,163 @@ function renderSitesSection(tab, el) {
   }
 }
 
+// src/ui/settings/manage/feedbackSection.ts
+var import_obsidian23 = require("obsidian");
+
+// src/ui/feedback/feedbackModal.ts
+var import_obsidian22 = require("obsidian");
+
+// src/api/geekstashApi.ts
+var import_obsidian21 = require("obsidian");
+var GEEKSTASH_ORIGIN = "https://geekstash.dev";
+var NOTEFLARE_SLUG = "noteflare";
+var NOTEFLARE_GITHUB_REPO = "THANSHEER/obsidian-noteflare";
+function feedbackFormUrl(topic) {
+  const url = `${GEEKSTASH_ORIGIN}/${NOTEFLARE_SLUG}/feedback`;
+  return topic && topic !== "general" ? `${url}?topic=${encodeURIComponent(topic)}` : url;
+}
+function featureRequestFormUrl() {
+  return `${GEEKSTASH_ORIGIN}/${NOTEFLARE_SLUG}/feature-request`;
+}
+function bugReportFormUrl() {
+  return `${GEEKSTASH_ORIGIN}/${NOTEFLARE_SLUG}/bug-report`;
+}
+function uninstallFormUrl() {
+  return `${GEEKSTASH_ORIGIN}/${NOTEFLARE_SLUG}/uninstall`;
+}
+function matchesReleaseTag(version, tag) {
+  if (!tag)
+    return false;
+  const normalizedVersion = version.startsWith("v") ? version.slice(1) : version;
+  const normalizedTag = tag.startsWith("v") ? tag.slice(1) : tag;
+  return normalizedTag === normalizedVersion;
+}
+var GeekstashApi = class {
+  /** Public GitHub release notes for the given plugin version (no auth). */
+  static async fetchReleaseNotes(version) {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    const tags = version.startsWith("v") ? [version, version.slice(1)] : [`v${version}`, version];
+    for (const tag of tags) {
+      const resp = await (0, import_obsidian21.requestUrl)({
+        url: `https://api.github.com/repos/${NOTEFLARE_GITHUB_REPO}/releases/tags/${encodeURIComponent(tag)}`,
+        method: "GET",
+        headers: {
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28"
+        },
+        throw: false
+      });
+      if (resp.status === 200) {
+        const data2 = resp.json;
+        return {
+          tagName: (_a = data2.tag_name) != null ? _a : tag,
+          name: (_b = data2.name) != null ? _b : tag,
+          body: ((_c = data2.body) != null ? _c : "").trim(),
+          htmlUrl: (_d = data2.html_url) != null ? _d : `https://github.com/${NOTEFLARE_GITHUB_REPO}/releases`
+        };
+      }
+    }
+    const latest = await (0, import_obsidian21.requestUrl)({
+      url: `https://api.github.com/repos/${NOTEFLARE_GITHUB_REPO}/releases/latest`,
+      method: "GET",
+      headers: {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
+      throw: false
+    });
+    if (latest.status !== 200)
+      return null;
+    const data = latest.json;
+    if (!matchesReleaseTag(version, data.tag_name)) {
+      return {
+        tagName: version,
+        name: `NoteFlare ${version}`,
+        body: "",
+        htmlUrl: `https://github.com/${NOTEFLARE_GITHUB_REPO}/releases`
+      };
+    }
+    return {
+      tagName: (_e = data.tag_name) != null ? _e : "",
+      name: (_f = data.name) != null ? _f : "Latest release",
+      body: ((_g = data.body) != null ? _g : "").trim(),
+      htmlUrl: (_h = data.html_url) != null ? _h : `https://github.com/${NOTEFLARE_GITHUB_REPO}/releases`
+    };
+  }
+};
+
+// src/ui/feedback/feedbackModal.ts
+var TOPICS = {
+  general: "General",
+  publishing: "Publishing",
+  backup: "Backup",
+  ui: "Interface",
+  other: "Other"
+};
+var FeedbackModal = class extends import_obsidian22.Modal {
+  constructor(app, defaultTopic = "general") {
+    super(app);
+    this.topic = defaultTopic in TOPICS ? defaultTopic : "general";
+  }
+  onOpen() {
+    this.titleEl.setText("Send feedback");
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("nf-feedback-modal");
+    contentEl.createEl("p", {
+      cls: "setting-item-description",
+      text: "Feedback opens in your browser on the Geekstash site \u2014 it only takes a minute."
+    });
+    new import_obsidian22.Setting(contentEl).setName("Topic").addDropdown((d) => {
+      for (const [id, label] of Object.entries(TOPICS)) {
+        d.addOption(id, label);
+      }
+      d.setValue(this.topic);
+      d.onChange((v) => {
+        this.topic = v;
+      });
+    });
+    new import_obsidian22.Setting(contentEl).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => {
+      b.setButtonText("Open feedback form").setCta();
+      b.onClick(() => {
+        window.open(feedbackFormUrl(this.topic), "_blank");
+        this.close();
+      });
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/ui/settings/manage/feedbackSection.ts
+function renderFeedbackSection(tab, el) {
+  const heading = new import_obsidian23.Setting(el);
+  heading.setName("Feedback");
+  heading.setHeading();
+  new import_obsidian23.Setting(el).setName("Send feedback").setDesc("Share what\u2019s working, what\u2019s confusing, or what broke. Opens in your browser.").addButton((b) => {
+    b.setButtonText("Give feedback");
+    b.onClick(() => {
+      new FeedbackModal(tab.app).open();
+    });
+  });
+  new import_obsidian23.Setting(el).setName("Request a feature").setDesc("Tell us what you\u2019d like NoteFlare to do next. Opens in your browser.").addButton((b) => {
+    b.setButtonText("Request feature");
+    b.setCta();
+    b.onClick(() => {
+      window.open(featureRequestFormUrl(), "_blank");
+    });
+  });
+  new import_obsidian23.Setting(el).setName("Report a bug").setDesc("Files a GitHub issue \u2014 attach screenshots or videos there. Opens in your browser.").addButton((b) => {
+    b.setButtonText("Report bug");
+    b.onClick(() => {
+      window.open(bugReportFormUrl(), "_blank");
+    });
+  });
+}
+
 // src/ui/settings/settingsTab.ts
-var NoteFlareSettingsTab = class extends import_obsidian21.PluginSettingTab {
+var NoteFlareSettingsTab = class extends import_obsidian24.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.isCloudflareConnectFlowOpen = false;
@@ -5783,7 +5943,8 @@ var NoteFlareSettingsTab = class extends import_obsidian21.PluginSettingTab {
     return [
       { id: "publish", name: "Publish", description: "Configure publishing to Cloudflare and GitHub Pages" },
       { id: "backup", name: "Automated Backup", description: "Configure automatic private repository backups" },
-      { id: "connections", name: "Connections", description: "Manage connected GitHub and Cloudflare accounts" }
+      { id: "connections", name: "Connections", description: "Manage connected GitHub and Cloudflare accounts" },
+      { id: "feedback", name: "Feedback", description: "Send feedback or request a feature" }
     ];
   }
   getInitialWizardStep() {
@@ -5824,6 +5985,11 @@ var NoteFlareSettingsTab = class extends import_obsidian21.PluginSettingTab {
         } catch (e) {
           this.renderSectionError(containerEl, "Sites", e);
         }
+        try {
+          renderFeedbackSection(this, containerEl);
+        } catch (e) {
+          this.renderSectionError(containerEl, "Feedback", e);
+        }
       }
     } catch (err) {
       this.renderSectionError(containerEl, "Settings", err);
@@ -5849,10 +6015,10 @@ var NoteFlareSettingsTab = class extends import_obsidian21.PluginSettingTab {
   }
   renderResetFooter(el) {
     const divider = el.createDiv("nf-reset-footer");
-    const dangerHeading = new import_obsidian21.Setting(divider);
+    const dangerHeading = new import_obsidian24.Setting(divider);
     dangerHeading.setName("Danger zone");
     dangerHeading.setHeading();
-    const resetSetting = new import_obsidian21.Setting(divider);
+    const resetSetting = new import_obsidian24.Setting(divider);
     resetSetting.setName("Hard reset NoteFlare");
     resetSetting.setDesc(
       "Clears all NoteFlare data \u2014 tokens, every site, and all configuration. Your GitHub repos and Cloudflare projects are NOT deleted and can be reconnected any time."
@@ -5910,7 +6076,7 @@ var StatusBar = class {
 };
 
 // src/ui/noteflareView.ts
-var import_obsidian22 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 var VIEW_TYPE_NOTEFLARE = "noteflare-panel";
 var CLOUDFLARE_APP_URL3 = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
 function relativeTime(iso) {
@@ -5930,7 +6096,7 @@ function relativeTime(iso) {
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
 }
-var NoteFlareView = class extends import_obsidian22.ItemView {
+var NoteFlareView = class extends import_obsidian25.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -6005,7 +6171,7 @@ var NoteFlareView = class extends import_obsidian22.ItemView {
     const hasFailed = site.lastPublishFailed && !isPublishing;
     const isLive = site.isPublished && !hasFailed;
     const live = (_a = this.plugin.liveStatus[site.id]) != null ? _a : null;
-    new import_obsidian22.Setting(root).setName("Current site").addDropdown((d) => {
+    new import_obsidian25.Setting(root).setName("Current site").addDropdown((d) => {
       for (const sp of s.sites) {
         d.addOption(sp.id, sp.name || sp.githubRepo);
       }
@@ -6035,7 +6201,7 @@ var NoteFlareView = class extends import_obsidian22.ItemView {
       });
     }
     let updateVisibility;
-    new import_obsidian22.Setting(root).setName("Publish scope").setDesc("Configure what to publish: the entire vault or selected files/folders.").addDropdown((d) => {
+    new import_obsidian25.Setting(root).setName("Publish scope").setDesc("Configure what to publish: the entire vault or selected files/folders.").addDropdown((d) => {
       d.addOption("vault", "Full Vault");
       d.addOption("selected", "Selected Files/Folders");
       d.setValue(site.publishScope || "vault");
@@ -6107,7 +6273,7 @@ var NoteFlareView = class extends import_obsidian22.ItemView {
           const iconSpan = chip.createSpan();
           const abstractFile = this.app.vault.getAbstractFileByPath(paths[i]);
           const isFolder = abstractFile && "children" in abstractFile;
-          (0, import_obsidian22.setIcon)(iconSpan, isFolder ? "folder" : "file-text");
+          (0, import_obsidian25.setIcon)(iconSpan, isFolder ? "folder" : "file-text");
           iconSpan.setCssStyles({
             display: "flex",
             alignItems: "center",
@@ -6117,7 +6283,7 @@ var NoteFlareView = class extends import_obsidian22.ItemView {
           });
           chip.createSpan({ text: paths[i] });
           const removeBtn = chip.createSpan({ cls: "clickable-icon" });
-          (0, import_obsidian22.setIcon)(removeBtn, "x");
+          (0, import_obsidian25.setIcon)(removeBtn, "x");
           removeBtn.setCssStyles({
             display: "flex",
             alignItems: "center",
@@ -6140,7 +6306,7 @@ var NoteFlareView = class extends import_obsidian22.ItemView {
       renderPaths();
     };
     updateVisibility();
-    new import_obsidian22.Setting(root).setName("Advanced").setDesc("Configure metadata, styling, and exclusions for this site.").addButton((b) => {
+    new import_obsidian25.Setting(root).setName("Advanced").setDesc("Configure metadata, styling, and exclusions for this site.").addButton((b) => {
       b.setButtonText("Edit").onClick(() => {
         new EditSiteModal(this.app, this.plugin, site, () => this.refresh()).open();
       });
@@ -6303,9 +6469,9 @@ var NoteFlareView = class extends import_obsidian22.ItemView {
       borderRadius: "var(--radius-s)",
       marginBottom: "15px"
     });
-    const actionHeading = new import_obsidian22.Setting(actionBox).setName("Actions").setHeading();
+    const actionHeading = new import_obsidian25.Setting(actionBox).setName("Actions").setHeading();
     actionHeading.settingEl.setCssStyles({ border: "none", padding: "0", marginBottom: "12px" });
-    const actionSetting = new import_obsidian22.Setting(actionBox);
+    const actionSetting = new import_obsidian25.Setting(actionBox);
     actionSetting.settingEl.setCssStyles({ border: "none", padding: "0" });
     actionSetting.infoEl.setCssStyles({ display: "none" });
     actionSetting.controlEl.setCssStyles({
@@ -6605,12 +6771,192 @@ var BackupScheduler = class {
   }
 };
 
+// src/ui/feedback/uninstallModal.ts
+var import_obsidian26 = require("obsidian");
+var UninstallFeedbackModal = class extends import_obsidian26.Modal {
+  constructor(app, onFinished) {
+    super(app);
+    this.onFinished = onFinished;
+    this.resolved = false;
+  }
+  onOpen() {
+    this.titleEl.setText("Leaving NoteFlare?");
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("nf-feedback-modal");
+    contentEl.createEl("p", {
+      cls: "nf-uninstall-message",
+      text: "Sorry to see you go. If you have a moment, tell us why in your browser \u2014 it helps us improve. You can skip this."
+    });
+    const row = contentEl.createDiv({ cls: "nf-uninstall-actions" });
+    const skip = row.createEl("button", { text: "Skip" });
+    skip.addEventListener("click", () => this.finish());
+    const tell = row.createEl("button", { text: "Tell us why", cls: "mod-cta" });
+    tell.addEventListener("click", () => {
+      window.open(uninstallFormUrl(), "_blank");
+      this.finish();
+    });
+  }
+  onClose() {
+    var _a;
+    this.contentEl.empty();
+    if (!this.resolved) {
+      this.resolved = true;
+      (_a = this.onFinished) == null ? void 0 : _a.call(this);
+    }
+  }
+  finish() {
+    var _a;
+    this.resolved = true;
+    (_a = this.onFinished) == null ? void 0 : _a.call(this);
+    this.close();
+  }
+};
+
+// src/ui/feedback/whatsNewModal.ts
+var import_obsidian27 = require("obsidian");
+
+// src/ui/feedback/kofiWidget.ts
+var loading = null;
+function loadKofiWidget() {
+  if (window.kofiwidget2)
+    return Promise.resolve(window.kofiwidget2);
+  if (loading)
+    return loading;
+  loading = new Promise((resolve, reject) => {
+    const existing = document.querySelector(
+      `script[src="${KOFI_WIDGET_SCRIPT}"]`
+    );
+    if (existing) {
+      if (window.kofiwidget2) {
+        resolve(window.kofiwidget2);
+        return;
+      }
+      existing.addEventListener("load", () => {
+        if (window.kofiwidget2)
+          resolve(window.kofiwidget2);
+        else
+          reject(new Error("Ko-fi widget failed to load."));
+      });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Ko-fi widget failed to load."))
+      );
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = KOFI_WIDGET_SCRIPT;
+    script.async = true;
+    script.onload = () => {
+      if (window.kofiwidget2)
+        resolve(window.kofiwidget2);
+      else
+        reject(new Error("Ko-fi widget failed to load."));
+    };
+    script.onerror = () => reject(new Error("Ko-fi widget failed to load."));
+    document.head.appendChild(script);
+  });
+  return loading;
+}
+async function mountKofiWidget(container) {
+  var _a;
+  try {
+    const widget = await loadKofiWidget();
+    const id = (_a = KOFI_URL.replace(/\/$/, "").split("/").pop()) != null ? _a : "P0R02009G7";
+    widget.init(KOFI_BUTTON_LABEL, KOFI_BUTTON_COLOR, id);
+    container.empty();
+    container.innerHTML = widget.getHTML();
+  } catch (e) {
+    container.empty();
+    const link = container.createEl("a", {
+      cls: "nf-kofi-button",
+      text: KOFI_BUTTON_LABEL,
+      href: KOFI_URL,
+      attr: { target: "_blank", rel: "noopener" }
+    });
+    link.setCssStyles({
+      backgroundColor: KOFI_BUTTON_COLOR,
+      color: "#ffffff"
+    });
+    link.addEventListener("click", (e2) => {
+      e2.preventDefault();
+      window.open(KOFI_URL, "_blank");
+    });
+  }
+}
+
+// src/ui/feedback/whatsNewModal.ts
+var WhatsNewModal = class extends import_obsidian27.Modal {
+  constructor(app, version, release) {
+    super(app);
+    this.version = version;
+    this.release = release;
+  }
+  onOpen() {
+    var _a, _b, _c, _d, _e;
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("nf-feedback-modal");
+    const title = ((_b = (_a = this.release) == null ? void 0 : _a.name) == null ? void 0 : _b.trim()) || `NoteFlare ${this.version}`;
+    this.titleEl.setText(`What's new \u2014 ${title}`);
+    contentEl.createEl("p", {
+      cls: "setting-item-description",
+      text: `Updated to ${this.version}. Here\u2019s what changed:`
+    });
+    const notes = contentEl.createDiv({ cls: "nf-release-notes" });
+    const body = (_d = (_c = this.release) == null ? void 0 : _c.body) == null ? void 0 : _d.trim();
+    if (body) {
+      notes.createEl("pre", { cls: "nf-release-body", text: body });
+    } else {
+      notes.createEl("p", {
+        cls: "setting-item-description",
+        text: "Release notes for this version are not available yet. You can still view the full release history on GitHub."
+      });
+    }
+    const releaseUrl = (_e = this.release) == null ? void 0 : _e.htmlUrl;
+    if (releaseUrl) {
+      new import_obsidian27.Setting(contentEl).addButton((b) => {
+        b.setButtonText(body ? "View release on GitHub" : "View releases on GitHub");
+        b.onClick(() => {
+          window.open(releaseUrl, "_blank");
+        });
+      });
+    }
+    const support = contentEl.createDiv({ cls: "nf-kofi-support" });
+    support.createEl("p", {
+      cls: "nf-whatsnew-feedback-prompt",
+      text: "If NoteFlare helps you, you can support development on Ko-fi."
+    });
+    const kofiHost = support.createDiv({ cls: "nf-kofi-widget-host" });
+    void mountKofiWidget(kofiHost);
+    contentEl.createEl("p", {
+      cls: "nf-whatsnew-feedback-prompt",
+      text: "How\u2019s the update going? We\u2019d love your feedback."
+    });
+    new import_obsidian27.Setting(contentEl).addButton((b) => {
+      b.setButtonText("Give feedback").setCta();
+      b.onClick(() => {
+        this.close();
+        new FeedbackModal(this.app, "general").open();
+      });
+    }).addButton(
+      (b) => b.setButtonText("Dismiss").onClick(() => {
+        this.close();
+      })
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
 // main.ts
-var NoteFlarePlugin = class extends import_obsidian23.Plugin {
+var NoteFlarePlugin = class extends import_obsidian28.Plugin {
   constructor() {
     super(...arguments);
     this.ribbonEl = null;
     this.backupInProgress = false;
+    this.hasCheckedForUpdateNotes = false;
     /** In-progress publish tracking (in-memory only, cleared on success/fail). */
     this.publishInProgress = {};
     /** Live GitHub status cache (in-memory, refreshed on panel open/refresh). */
@@ -6621,14 +6967,14 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
     if (this.settings.githubToken && this.settings.githubOwner && this.settings.sites.length === 0) {
       const registry = await VaultRegistry.load(this.app);
       if (registry.entries.length > 0) {
-        new import_obsidian23.Notice(
+        new import_obsidian28.Notice(
           `NoteFlare found ${registry.entries.length} previously configured site${registry.entries.length === 1 ? "" : "s"} in your vault. Open NoteFlare settings to restore them.`,
           1e4
         );
       }
     }
     if (!isSecureStorageAvailable()) {
-      new import_obsidian23.Notice(
+      new import_obsidian28.Notice(
         "NoteFlare: secure token storage is unavailable on this system. Your tokens will not be saved between sessions \u2014 you may need to re-enter them.",
         1e4
       );
@@ -6665,6 +7011,44 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
     });
     this.addSettingTab(new NoteFlareSettingsTab(this.app, this));
     new BackupScheduler(this).registerAutomation();
+    this.app.workspace.onLayoutReady(() => {
+      void this.checkForUpdateNotes();
+    });
+  }
+  onunload() {
+    if (!this.app.workspace.layoutReady)
+      return;
+    try {
+      new UninstallFeedbackModal(this.app).open();
+    } catch (e) {
+      console.warn("NoteFlare: could not open uninstall feedback:", e);
+    }
+  }
+  /** Show What's New when manifest.version differs from the last acknowledged version. */
+  async checkForUpdateNotes() {
+    if (this.hasCheckedForUpdateNotes)
+      return;
+    this.hasCheckedForUpdateNotes = true;
+    const current = this.manifest.version;
+    const previous = this.settings.lastSeenVersion;
+    if (!previous) {
+      if (!this.settings.setupComplete) {
+        this.settings.lastSeenVersion = current;
+        await this.saveSettings();
+        return;
+      }
+    } else if (previous === current) {
+      return;
+    }
+    this.settings.lastSeenVersion = current;
+    await this.saveSettings();
+    let release = null;
+    try {
+      release = await GeekstashApi.fetchReleaseNotes(current);
+    } catch (e) {
+      console.warn("NoteFlare: could not fetch release notes:", e);
+    }
+    new WhatsNewModal(this.app, current, release).open();
   }
   /** The currently-selected site, or the first one, or null when none exist. */
   getActiveSite() {
@@ -6707,13 +7091,13 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
     var _a;
     if (this.backupInProgress) {
       if (!background)
-        new import_obsidian23.Notice("A backup is already running.");
+        new import_obsidian28.Notice("A backup is already running.");
       return;
     }
     if (!this.settings.setupComplete || !this.settings.enableBackup) {
       if (!background) {
         this.openSettingsTab();
-        new import_obsidian23.Notice("Enable private backup in NoteFlare settings first.");
+        new import_obsidian28.Notice("Enable private backup in NoteFlare settings first.");
       }
       return;
     }
@@ -6735,7 +7119,7 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
       await this.saveSettings();
       if (!background) {
         const message = result.updated > 0 ? `Backup complete \xB7 ${result.updated} file${result.updated === 1 ? "" : "s"} updated` : "Backup is already up to date";
-        new import_obsidian23.Notice(message, 5e3);
+        new import_obsidian28.Notice(message, 5e3);
       }
     } catch (error) {
       const message = this.toUserMessage(error, "Backup failed.");
@@ -6743,7 +7127,7 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
       await this.saveSettings();
       if (!background) {
         this.statusBar.setError(message);
-        new import_obsidian23.Notice(message, 8e3);
+        new import_obsidian28.Notice(message, 8e3);
       } else {
         console.error(`NoteFlare background backup failed: ${message}`);
       }
@@ -6757,7 +7141,7 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
     const site = this.getActiveSite();
     if (!this.settings.setupComplete || !site) {
       this.openSettingsTab();
-      new import_obsidian23.Notice("Add a site before publishing.");
+      new import_obsidian28.Notice("Add a site before publishing.");
       return;
     }
     if (this.publishInProgress[site.id])
@@ -6777,7 +7161,7 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
       site.lastPublishError = message;
       site.isPublished = false;
       this.statusBar.setError(message);
-      new import_obsidian23.Notice(message, 8e3);
+      new import_obsidian28.Notice(message, 8e3);
       await this.saveSettings();
     } finally {
       this.publishInProgress[site.id] = false;
@@ -6788,7 +7172,7 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
     const site = this.getActiveSite();
     if (!this.settings.setupComplete || !site) {
       this.openSettingsTab();
-      new import_obsidian23.Notice("Add a site first.");
+      new import_obsidian28.Notice("Add a site first.");
       return;
     }
     const publisher = new Publisher(this.settings, site, this.app, (message) => {
@@ -6800,11 +7184,11 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
       site.isPublished = false;
       await this.saveSettings();
       this.updateStatusBar();
-      new import_obsidian23.Notice("Your site is now offline. You can publish again any time.");
+      new import_obsidian28.Notice("Your site is now offline. You can publish again any time.");
     } catch (err) {
       const message = this.toUserMessage(err, "Unpublish failed. Check your Cloudflare settings and try again.");
       this.statusBar.setError(message);
-      new import_obsidian23.Notice(message, 8e3);
+      new import_obsidian28.Notice(message, 8e3);
     }
   }
   async loadSettings() {
@@ -6851,7 +7235,7 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
     if (!this.ribbonEl)
       return;
     const live = this.isActiveLive();
-    (0, import_obsidian23.setIcon)(this.ribbonEl, live ? "cloud-check" : "cloud-upload");
+    (0, import_obsidian28.setIcon)(this.ribbonEl, live ? "cloud-check" : "cloud-upload");
     this.ribbonEl.setAttribute(
       "aria-label",
       live ? "NoteFlare: Unpublish site" : "NoteFlare: Publish site"
@@ -6885,13 +7269,13 @@ var NoteFlarePlugin = class extends import_obsidian23.Plugin {
     if (result.success) {
       this.statusBar.setLive(result.noteCount, site.siteUrl);
       const fixedNote = result.fixed > 0 ? ` (auto-fixed ${result.fixed} frontmatter issue${result.fixed === 1 ? "" : "s"})` : "";
-      new import_obsidian23.Notice(`Published ${result.noteCount} file${result.noteCount === 1 ? "" : "s"} to ${site.siteUrl}${fixedNote}`, 6e3);
+      new import_obsidian28.Notice(`Published ${result.noteCount} file${result.noteCount === 1 ? "" : "s"} to ${site.siteUrl}${fixedNote}`, 6e3);
       void this.fetchLiveStatus(site);
       return;
     }
     const firstError = (_b = result.errors[0]) != null ? _b : "Publishing failed. Review your setup and try again.";
     this.statusBar.setError(firstError);
-    new import_obsidian23.Notice(`Failed to publish: ${firstError}`, 8e3);
+    new import_obsidian28.Notice(`Failed to publish: ${firstError}`, 8e3);
   }
   /**
    * Fetch live GitHub status for the given site and cache it in `liveStatus`.
@@ -7014,6 +7398,7 @@ function migrateSettings(loaded) {
   settings.activeSiteId = str(loaded.activeSiteId);
   settings.enableBackup = loaded.enableBackup === true;
   settings.enablePublish = loaded.enablePublish !== false;
+  settings.lastSeenVersion = str(loaded.lastSeenVersion);
   const savedBackup = typeof loaded.backup === "object" && loaded.backup !== null ? loaded.backup : null;
   settings.backup = {
     ...DEFAULT_BACKUP_SETTINGS,
