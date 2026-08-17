@@ -238,13 +238,14 @@
   min-height: 40px;
 }
 
+a.nf-kofi-button,
 .nf-kofi-button {
   display: inline-block;
   padding: 8px 16px;
   border-radius: 7px;
   font-weight: 700;
   font-size: 14px;
-  text-decoration: none !important;
+  text-decoration: none;
   cursor: pointer;
 }
 

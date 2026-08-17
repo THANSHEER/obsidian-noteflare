@@ -2,6 +2,21 @@
 
 All notable changes to NoteFlare are documented here.
 
+## [1.2.1] - 2026-08-17
+
+### Security & Compliance
+- Replaced dynamic external Ko-fi script loading and `innerHTML` with native Obsidian DOM helpers (`createEl`), ensuring full compliance with Obsidian Community Plugin security policies.
+- Fixed CSS linting warning by removing `!important` and using CSS selector specificity for button styles.
+- Removed unused imports and parameters (`RegistryEntry`, `_hostingProvider`).
+
+---
+
+**How to Update:** Install from Obsidian Community Plugins.
+
+No breaking changes.
+
+---
+
 ## [1.2.0] - 2026-08-16
 
 ### Features

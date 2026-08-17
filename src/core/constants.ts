@@ -2,7 +2,7 @@
 export const KOFI_URL = 'https://ko-fi.com/P0R02009G7';
 export const KOFI_BUTTON_LABEL = 'Support me on Ko-fi';
 export const KOFI_BUTTON_COLOR = '#000000';
-export const KOFI_WIDGET_SCRIPT = 'https://storage.ko-fi.com/cdn/widget/Widget_2.js';
+
 
 // Shared across fileCollector (which files to upload) and transformer (which
 // embeds are images). Keep this as the single source of truth — both modules

@@ -3820,7 +3820,6 @@ var import_micromatch = __toESM(require_micromatch());
 var KOFI_URL = "https://ko-fi.com/P0R02009G7";
 var KOFI_BUTTON_LABEL = "Support me on Ko-fi";
 var KOFI_BUTTON_COLOR = "#000000";
-var KOFI_WIDGET_SCRIPT = "https://storage.ko-fi.com/cdn/widget/Widget_2.js";
 var ATTACHMENT_EXTS = /* @__PURE__ */ new Set([
   "png",
   "jpg",
@@ -4415,7 +4414,7 @@ function cloudflareSetupHint(rawMessage, repoSlug) {
   }
   return `Couldn't create the Pages project. Most likely the Cloudflare GitHub App isn't authorized for ${repoSlug} yet \u2014 use \u201CAuthorize Cloudflare on GitHub\u201D, grant access to that repo, then try again. (Cloudflare said: ${rawMessage})`;
 }
-async function provisionSite(plugin, name, profileParams, hostingProvider = "cloudflare") {
+async function provisionSite(plugin, name, profileParams, _hostingProvider = "cloudflare") {
   const slug = slugify(name);
   if (!slug)
     throw new Error("Please enter a site name.");
@@ -6817,72 +6816,26 @@ var UninstallFeedbackModal = class extends import_obsidian26.Modal {
 var import_obsidian27 = require("obsidian");
 
 // src/ui/feedback/kofiWidget.ts
-var loading = null;
-function loadKofiWidget() {
-  if (window.kofiwidget2)
-    return Promise.resolve(window.kofiwidget2);
-  if (loading)
-    return loading;
-  loading = new Promise((resolve, reject) => {
-    const existing = document.querySelector(
-      `script[src="${KOFI_WIDGET_SCRIPT}"]`
-    );
-    if (existing) {
-      if (window.kofiwidget2) {
-        resolve(window.kofiwidget2);
-        return;
-      }
-      existing.addEventListener("load", () => {
-        if (window.kofiwidget2)
-          resolve(window.kofiwidget2);
-        else
-          reject(new Error("Ko-fi widget failed to load."));
-      });
-      existing.addEventListener(
-        "error",
-        () => reject(new Error("Ko-fi widget failed to load."))
-      );
-      return;
+function mountKofiWidget(container) {
+  container.empty();
+  const link = container.createEl("a", {
+    cls: "nf-kofi-button",
+    text: `\u2615 ${KOFI_BUTTON_LABEL}`,
+    href: KOFI_URL,
+    attr: {
+      target: "_blank",
+      rel: "noopener noreferrer",
+      "aria-label": KOFI_BUTTON_LABEL
     }
-    const script = document.createElement("script");
-    script.src = KOFI_WIDGET_SCRIPT;
-    script.async = true;
-    script.onload = () => {
-      if (window.kofiwidget2)
-        resolve(window.kofiwidget2);
-      else
-        reject(new Error("Ko-fi widget failed to load."));
-    };
-    script.onerror = () => reject(new Error("Ko-fi widget failed to load."));
-    document.head.appendChild(script);
   });
-  return loading;
-}
-async function mountKofiWidget(container) {
-  var _a;
-  try {
-    const widget = await loadKofiWidget();
-    const id = (_a = KOFI_URL.replace(/\/$/, "").split("/").pop()) != null ? _a : "P0R02009G7";
-    widget.init(KOFI_BUTTON_LABEL, KOFI_BUTTON_COLOR, id);
-    container.empty();
-    container.innerHTML = widget.getHTML();
-  } catch (e) {
-    container.empty();
-    const link = container.createEl("a", {
-      cls: "nf-kofi-button",
-      text: KOFI_BUTTON_LABEL,
-      href: KOFI_URL,
-      attr: { target: "_blank", rel: "noopener" }
-    });
-    link.setCssStyles({
-      backgroundColor: KOFI_BUTTON_COLOR,
-      color: "#ffffff"
-    });
-    link.addEventListener("click", (e2) => {
-      e2.preventDefault();
-      window.open(KOFI_URL, "_blank");
-    });
-  }
+  link.setCssStyles({
+    backgroundColor: KOFI_BUTTON_COLOR,
+    color: "#ffffff"
+  });
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.open(KOFI_URL, "_blank");
+  });
 }
 
 // src/ui/feedback/whatsNewModal.ts

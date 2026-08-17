@@ -50,7 +50,7 @@ export async function provisionSite(
   plugin: NoteFlarePlugin,
   name: string,
   profileParams: Partial<SiteProfile>,
-  hostingProvider: SiteProfile['hostingProvider'] = 'cloudflare',
+  _hostingProvider: SiteProfile['hostingProvider'] = 'cloudflare',
 ): Promise<SiteProfile> {
   const slug = slugify(name);
   if (!slug) throw new Error('Please enter a site name.');

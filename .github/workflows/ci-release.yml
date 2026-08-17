@@ -24,8 +24,8 @@ jobs:
       - name: Install Dependencies
         run: npm ci || npm install
         
-      - name: Run Unit Tests
-        run: npm test
+      - name: Run Unit Tests & Compliance Checks
+        run: npm run check
 
       - name: Run Build (Obsidian check)
         run: npm run build

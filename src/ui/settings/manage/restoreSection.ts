@@ -1,7 +1,6 @@
 import { Setting } from 'obsidian';
 import type { NoteFlareSettingsTab } from '../settingsTab';
 import { VaultRegistry } from '../../../core/vaultRegistry';
-import { RegistryEntry } from '../../../core/types';
 import { createErrorEl, showError } from '../settingsHelpers';
 
 export async function renderRestoreFromRegistry(tab: NoteFlareSettingsTab, el: HTMLElement): Promise<void> {
