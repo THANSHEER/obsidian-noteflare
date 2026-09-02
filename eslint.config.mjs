@@ -40,6 +40,7 @@ export default [
             "Ko-fi",
             "GeekStash",
             "Git",
+            "Sponsors",
           ],
           acronyms: [
             "API",
@@ -60,7 +61,6 @@ export default [
           ],
         },
       ],
-      "obsidianmd/settings-tab/prefer-setting-definitions": "off",
     },
   },
   {

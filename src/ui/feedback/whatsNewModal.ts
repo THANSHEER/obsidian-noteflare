@@ -1,13 +1,16 @@
-import { App, Modal, Setting } from 'obsidian';
-import type { GitHubReleaseNotes } from '../../api/geekstashApi';
-import { FeedbackModal } from './feedbackModal';
-import { mountKofiWidget } from './kofiWidget';
+import { App, Component, Modal, Setting, MarkdownRenderer } from 'obsidian';
+import { NOTEFLARE_GITHUB_REPO, type GitHubReleaseNotes } from '../../api/geekstashApi';
+import { getChangelogForVersion } from '../../core/changelogData';
+import { renderSupportCard } from './supportCard';
 
 /**
- * Shown after a plugin update. Displays the GitHub release body,
- * the official Ko-fi support widget, and a shortcut to send feedback.
+ * Shown after a plugin update or on demand from settings.
+ * Displays the release notes formatted as rich Markdown, reliable embedded changelog fallback,
+ * and the modern Support & Feedback card.
  */
 export class WhatsNewModal extends Modal {
+  private component = new Component();
+
   constructor(
     app: App,
     private version: string,
@@ -16,71 +19,46 @@ export class WhatsNewModal extends Modal {
     super(app);
   }
 
-  onOpen(): void {
+  override onOpen(): void {
+    this.component.load();
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass('nf-feedback-modal');
+    contentEl.addClass('nf-whatsnew-modal');
 
-    const title = this.release?.name?.trim() || `NoteFlare ${this.version}`;
-    this.titleEl.setText(`What's new — ${title}`);
+    // Modal Header
+    const headerEl = contentEl.createDiv({ cls: 'nf-whatsnew-header' });
+    headerEl.createSpan({ cls: 'nf-version-badge', text: `v${this.version}` });
+    this.titleEl.setText(`What’s new in NoteFlare`);
 
-    contentEl.createEl('p', {
-      cls: 'setting-item-description',
-      text: `Updated to ${this.version}. Here’s what changed:`,
-    });
+    // Extract release body or fall back to embedded changelog
+    const body = this.release?.body?.trim() || getChangelogForVersion(this.version);
 
-    const notes = contentEl.createDiv({ cls: 'nf-release-notes' });
-    const body = this.release?.body?.trim();
-    if (body) {
-      // Keep it plain text — release markdown can be noisy in a modal.
-      notes.createEl('pre', { cls: 'nf-release-body', text: body });
-    } else {
-      notes.createEl('p', {
-        cls: 'setting-item-description',
-        text: 'Release notes for this version are not available yet. You can still view the full release history on GitHub.',
-      });
-    }
+    // Render formatted markdown notes
+    const notesEl = contentEl.createDiv({ cls: 'nf-whatsnew-body markdown-rendered' });
+    void MarkdownRenderer.render(this.app, body, notesEl, '', this.component);
 
-    const releaseUrl = this.release?.htmlUrl;
-    if (releaseUrl) {
-      new Setting(contentEl).addButton((b) => {
-        b.setButtonText(body ? 'View release on GitHub' : 'View releases on GitHub');
+    // Support and feedback card
+    renderSupportCard(contentEl, this.app);
+
+    // Action buttons
+    const releaseUrl = this.release?.htmlUrl || `https://github.com/${NOTEFLARE_GITHUB_REPO}/releases`;
+    new Setting(contentEl)
+      .addButton((b) => {
+        b.setButtonText('View on GitHub ↗');
         b.onClick(() => {
           window.open(releaseUrl, '_blank');
         });
-      });
-    }
-
-    // Official Ko-fi Widget_2 (black button, same as site embed).
-    const support = contentEl.createDiv({ cls: 'nf-kofi-support' });
-    support.createEl('p', {
-      cls: 'nf-whatsnew-feedback-prompt',
-      text: 'If NoteFlare helps you, you can support development on Ko-fi.',
-    });
-    const kofiHost = support.createDiv({ cls: 'nf-kofi-widget-host' });
-    void mountKofiWidget(kofiHost);
-
-    contentEl.createEl('p', {
-      cls: 'nf-whatsnew-feedback-prompt',
-      text: 'How’s the update going? We’d love your feedback.',
-    });
-
-    new Setting(contentEl)
+      })
       .addButton((b) => {
-        b.setButtonText('Give feedback').setCta();
+        b.setButtonText('Got it').setCta();
         b.onClick(() => {
           this.close();
-          new FeedbackModal(this.app, 'general').open();
         });
-      })
-      .addButton((b) =>
-        b.setButtonText('Dismiss').onClick(() => {
-          this.close();
-        }),
-      );
+      });
   }
 
-  onClose(): void {
+  override onClose(): void {
+    this.component.unload();
     this.contentEl.empty();
   }
 }

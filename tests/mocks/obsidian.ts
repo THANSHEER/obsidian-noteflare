@@ -48,7 +48,11 @@ export class Plugin {
 }
 export class PluginSettingTab {
   constructor(public app: App, public plugin: Plugin) {}
+  getSettingDefinitions(): any[] {
+    return [];
+  }
 }
+export type SettingDefinitionItem = any;
 export class Modal {
   titleEl = { setText: jest.fn() };
   contentEl = {
@@ -142,4 +146,20 @@ export const parseYaml = (yaml: string) => {
 export const stringifyYaml = (obj: object) => {
   return Object.entries(obj).map(([k, v]) => `${k}: ${String(v)}`).join('\n');
 };
+
+export class MarkdownRenderer {
+  static render = jest.fn(async (_app: any, markdown: string, el: HTMLElement) => {
+    el.createEl('div', { text: markdown });
+  });
+}
+
+export class Component {
+  load = jest.fn();
+  unload = jest.fn();
+  addChild = jest.fn();
+  removeChild = jest.fn();
+  register = jest.fn();
+  registerEvent = jest.fn();
+  registerInterval = jest.fn();
+}
 

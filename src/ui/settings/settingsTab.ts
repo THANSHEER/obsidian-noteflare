@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, SettingDefinitionItem } from 'obsidian';
 import type NoteFlarePlugin from '../../../main';
 import { SetupStep } from '../../core/types';
 import { renderWizard } from './wizard/wizardRenderer';
@@ -34,6 +34,10 @@ export class NoteFlareSettingsTab extends PluginSettingTab {
     const s = this.plugin.settings;
     if (s.githubToken && s.githubOwner) return 'hosting';
     return 'github';
+  }
+
+  override getSettingDefinitions(): SettingDefinitionItem[] {
+    return [];
   }
 
   override display(): void {

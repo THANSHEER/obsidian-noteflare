@@ -1,7 +1,13 @@
 /** Ko-fi support (widget ID P0R02009G7). */
 export const KOFI_URL = 'https://ko-fi.com/P0R02009G7';
-export const KOFI_BUTTON_LABEL = 'Support me on Ko-fi';
+export const KOFI_BUTTON_LABEL = 'Support the project';
 export const KOFI_BUTTON_COLOR = '#000000';
+
+/** GitHub support. */
+export const GITHUB_REPO_URL = 'https://github.com/THANSHEER/obsidian-noteflare';
+export const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/THANSHEER';
+export const GITHUB_ISSUES_URL = 'https://github.com/THANSHEER/obsidian-noteflare/issues';
+export const GITHUB_STAR_BUTTON_LABEL = 'Star on GitHub';
 
 
 // Shared across fileCollector (which files to upload) and transformer (which

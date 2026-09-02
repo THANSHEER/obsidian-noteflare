@@ -2,6 +2,26 @@
 
 All notable changes to NoteFlare are documented here.
 
+## [1.2.3] - 2026-09-02
+
+### Improvements
+- **Modern Support & Community Card**: Redesigned the Feedback & Support settings section with a modern card UI featuring pill buttons for Ko-fi ("Support the project"), GitHub Sponsors, and Star on GitHub, along with quick links for feedback, feature requests, GitHub issues, and changelog.
+- **Enhanced Changelog Experience**: Upgraded the What's New dialog to render rich formatted Markdown notes (headings, styled bullet points, badges) instead of raw text.
+- **Reliable Update Notes**: Added an embedded changelog fallback to guarantee release notes display smoothly on every plugin update, even if the GitHub API is offline or rate-limited.
+- **View Changelog Command**: Added `NoteFlare: View changelog` to the Obsidian Command Palette (`Ctrl/Cmd+P`) and a direct link inside the settings card.
+
+### Fixes & Compliance
+- Fixed `@typescript-eslint/no-unsafe-*` warnings across secret storage and frontmatter transformer modules.
+- Implemented `getSettingDefinitions()` on `NoteFlareSettingsTab` to comply with Obsidian 1.13+ declarative settings requirements while maintaining backward compatibility.
+
+---
+
+**How to Update:** Install from Obsidian Community Plugins.
+
+No breaking changes.
+
+---
+
 ## [1.2.2] - 2026-09-02
 
 ### Fixes

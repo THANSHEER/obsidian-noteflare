@@ -1,4 +1,6 @@
 import {
+  GITHUB_REPO_URL,
+  GITHUB_STAR_BUTTON_LABEL,
   KOFI_BUTTON_COLOR,
   KOFI_BUTTON_LABEL,
   KOFI_URL,
@@ -28,6 +30,27 @@ export function mountKofiWidget(container: HTMLElement): void {
   link.addEventListener('click', (e) => {
     e.preventDefault();
     window.open(KOFI_URL, '_blank');
+  });
+}
+
+/**
+ * Mount a GitHub Star button into `container`.
+ */
+export function mountGitHubStarWidget(container: HTMLElement): void {
+  container.empty();
+  const link = container.createEl('a', {
+    cls: 'nf-github-star-button',
+    text: `⭐ ${GITHUB_STAR_BUTTON_LABEL}`,
+    href: GITHUB_REPO_URL,
+    attr: {
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      'aria-label': GITHUB_STAR_BUTTON_LABEL,
+    },
+  });
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.open(GITHUB_REPO_URL, '_blank');
   });
 }
 

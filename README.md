@@ -102,10 +102,16 @@ NoteFlare utilizes the powerful **mdgarden** open-source static site generator a
 
 ## Support
 
-If NoteFlare helps your workflow, you can support development on Ko-fi:
+If NoteFlare helps your workflow, please consider supporting the project:
+
+- ⭐ **[Star this repository on GitHub](https://github.com/THANSHEER/obsidian-noteflare)** — every star helps more Obsidian users discover NoteFlare!
+- ☕ **[Support development on Ko-fi](https://ko-fi.com/P0R02009G7)**
+- 💖 **[Sponsor on GitHub](https://github.com/sponsors/THANSHEER)**
 
 <div align="center">
 
+[![GitHub stars](https://img.shields.io/github/stars/THANSHEER/obsidian-noteflare?style=for-the-badge&logo=github&color=yellow)](https://github.com/THANSHEER/obsidian-noteflare/stargazers)
+&nbsp;
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/P0R02009G7)
 
 </div>

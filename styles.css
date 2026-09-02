@@ -235,7 +235,27 @@
 .nf-kofi-widget-host {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   min-height: 40px;
+}
+
+a.nf-github-star-button,
+.nf-github-star-button {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.nf-github-star-button:hover {
+  opacity: 0.9;
 }
 
 a.nf-kofi-button,
@@ -263,6 +283,174 @@ a.nf-kofi-button,
   justify-content: flex-end;
   gap: 8px;
   margin: 16px 0 0;
+}
+
+/* Support & Feedback Card matching modern Obsidian pill design */
+.nf-support-card {
+  margin: 16px 0;
+  padding: 20px 20px 16px;
+  border-radius: var(--radius-l, 12px);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  text-align: center;
+  transition: border-color 0.2s ease;
+}
+
+.nf-support-card:hover {
+  border-color: var(--background-modifier-border-hover);
+}
+
+.nf-support-pills {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+a.nf-support-pill,
+.nf-support-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.nf-support-pill:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+  transform: translateY(-1px);
+}
+
+.nf-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.nf-pill-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nf-cup-icon svg {
+  color: #ff5e5b;
+}
+
+.nf-heart-icon svg {
+  color: #ea4aaa;
+  fill: #ea4aaa;
+}
+
+.nf-star-icon svg {
+  color: #eab308;
+  fill: #eab308;
+}
+
+.nf-support-divider {
+  height: 1px;
+  width: 100%;
+  background: var(--background-modifier-border);
+  margin: 16px 0 14px;
+}
+
+.nf-support-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+a.nf-support-link,
+.nf-support-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+a.nf-support-link:hover,
+.nf-support-link:hover {
+  color: var(--text-normal);
+  text-decoration: underline;
+}
+
+.nf-dot-sep {
+  color: var(--text-faint);
+  font-weight: bold;
+  user-select: none;
+}
+
+/* What's New Modal Styling */
+.nf-whatsnew-modal {
+  max-width: 580px;
+}
+
+.nf-whatsnew-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.nf-version-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 9999px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  letter-spacing: 0.5px;
+}
+
+.nf-whatsnew-body {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 14px 18px;
+  margin: 12px 0 16px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary-alt);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.nf-whatsnew-body h3 {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-accent);
+}
+
+.nf-whatsnew-body h3:first-child {
+  margin-top: 0;
+}
+
+.nf-whatsnew-body ul {
+  margin: 0 0 10px 18px;
+  padding: 0;
+}
+
+.nf-whatsnew-body li {
+  margin-bottom: 4px;
 }
 
 

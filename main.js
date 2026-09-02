@@ -3088,7 +3088,7 @@ __export(main_exports, {
   default: () => NoteFlarePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian28 = require("obsidian");
+var import_obsidian29 = require("obsidian");
 
 // src/api/githubApi.ts
 var import_obsidian = require("obsidian");
@@ -3758,8 +3758,9 @@ var import_micromatch = __toESM(require_micromatch());
 
 // src/core/constants.ts
 var KOFI_URL = "https://ko-fi.com/P0R02009G7";
-var KOFI_BUTTON_LABEL = "Support me on Ko-fi";
-var KOFI_BUTTON_COLOR = "#000000";
+var GITHUB_REPO_URL = "https://github.com/THANSHEER/obsidian-noteflare";
+var GITHUB_SPONSORS_URL = "https://github.com/sponsors/THANSHEER";
+var GITHUB_ISSUES_URL = "https://github.com/THANSHEER/obsidian-noteflare/issues";
 var ATTACHMENT_EXTS = /* @__PURE__ */ new Set([
   "png",
   "jpg",
@@ -4010,7 +4011,8 @@ var Transformer = class {
     delete data.private;
     delete data.draft;
     const keys = Object.keys(data);
-    const yaml = keys.length ? (0, import_obsidian5.stringifyYaml)(data).trimEnd() : "";
+    const stringify = import_obsidian5.stringifyYaml;
+    const yaml = keys.length ? stringify(data).trimEnd() : "";
     const block = yaml ? `---
 ${yaml}
 ---` : `---
@@ -4240,7 +4242,7 @@ var Publisher = class {
 init_settings();
 
 // src/ui/settings/settingsTab.ts
-var import_obsidian24 = require("obsidian");
+var import_obsidian26 = require("obsidian");
 
 // src/ui/settings/wizard/stepGitHub.ts
 var import_obsidian6 = require("obsidian");
@@ -5682,10 +5684,10 @@ function renderSitesSection(tab, el) {
 }
 
 // src/ui/settings/manage/feedbackSection.ts
-var import_obsidian23 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 
-// src/ui/feedback/feedbackModal.ts
-var import_obsidian22 = require("obsidian");
+// src/ui/feedback/supportCard.ts
+var import_obsidian23 = require("obsidian");
 
 // src/api/geekstashApi.ts
 var import_obsidian21 = require("obsidian");
@@ -5698,9 +5700,6 @@ function feedbackFormUrl(topic) {
 }
 function featureRequestFormUrl() {
   return `${GEEKSTASH_ORIGIN}/${NOTEFLARE_SLUG}/feature-request`;
-}
-function bugReportFormUrl() {
-  return `${GEEKSTASH_ORIGIN}/${NOTEFLARE_SLUG}/bug-report`;
 }
 function uninstallFormUrl() {
   return `${GEEKSTASH_ORIGIN}/${NOTEFLARE_SLUG}/uninstall`;
@@ -5765,6 +5764,7 @@ var GeekstashApi = class {
 };
 
 // src/ui/feedback/feedbackModal.ts
+var import_obsidian22 = require("obsidian");
 var TOPICS = {
   general: "General",
   publishing: "Publishing",
@@ -5808,34 +5808,194 @@ var FeedbackModal = class extends import_obsidian22.Modal {
   }
 };
 
+// src/ui/feedback/supportCard.ts
+function renderSupportCard(container, app, options) {
+  const card = container.createDiv({ cls: "nf-support-card" });
+  const pillsRow = card.createDiv({ cls: "nf-support-pills" });
+  const kofiBtn = pillsRow.createEl("a", {
+    cls: "nf-support-pill nf-support-pill-kofi",
+    href: KOFI_URL,
+    attr: { target: "_blank", rel: "noopener noreferrer", "aria-label": "Support the project" }
+  });
+  const kofiIcon = kofiBtn.createSpan({ cls: "nf-pill-icon nf-cup-icon" });
+  (0, import_obsidian23.setIcon)(kofiIcon, "coffee");
+  kofiBtn.createSpan({ text: "Support the project" });
+  kofiBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.open(KOFI_URL, "_blank");
+  });
+  const sponsorBtn = pillsRow.createEl("a", {
+    cls: "nf-support-pill nf-support-pill-sponsor",
+    href: GITHUB_SPONSORS_URL,
+    attr: { target: "_blank", rel: "noopener noreferrer", "aria-label": "GitHub Sponsors" }
+  });
+  const sponsorIcon = sponsorBtn.createSpan({ cls: "nf-pill-icon nf-heart-icon" });
+  (0, import_obsidian23.setIcon)(sponsorIcon, "heart");
+  sponsorBtn.createSpan({ text: "GitHub Sponsors" });
+  sponsorBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.open(GITHUB_SPONSORS_URL, "_blank");
+  });
+  const starBtn = pillsRow.createEl("a", {
+    cls: "nf-support-pill nf-support-pill-star",
+    href: GITHUB_REPO_URL,
+    attr: { target: "_blank", rel: "noopener noreferrer", "aria-label": "Star on GitHub" }
+  });
+  const starIcon = starBtn.createSpan({ cls: "nf-pill-icon nf-star-icon" });
+  (0, import_obsidian23.setIcon)(starIcon, "star");
+  starBtn.createSpan({ text: "Star on GitHub" });
+  starBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.open(GITHUB_REPO_URL, "_blank");
+  });
+  card.createDiv({ cls: "nf-support-divider" });
+  const linksRow = card.createDiv({ cls: "nf-support-links" });
+  const feedbackLink = linksRow.createEl("a", {
+    cls: "nf-support-link",
+    text: "Give feedback",
+    href: "#",
+    attr: { role: "button" }
+  });
+  feedbackLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    new FeedbackModal(app, "general").open();
+  });
+  linksRow.createSpan({ cls: "nf-dot-sep", text: "\xB7" });
+  const featureLink = linksRow.createEl("a", {
+    cls: "nf-support-link",
+    text: "Request a feature",
+    href: featureRequestFormUrl(),
+    attr: { target: "_blank", rel: "noopener noreferrer" }
+  });
+  featureLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.open(featureRequestFormUrl(), "_blank");
+  });
+  linksRow.createSpan({ cls: "nf-dot-sep", text: "\xB7" });
+  const issuesLink = linksRow.createEl("a", {
+    cls: "nf-support-link",
+    text: "GitHub issues",
+    href: GITHUB_ISSUES_URL,
+    attr: { target: "_blank", rel: "noopener noreferrer" }
+  });
+  issuesLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.open(GITHUB_ISSUES_URL, "_blank");
+  });
+  if (options == null ? void 0 : options.onOpenChangelog) {
+    linksRow.createSpan({ cls: "nf-dot-sep", text: "\xB7" });
+    const changelogLink = linksRow.createEl("a", {
+      cls: "nf-support-link",
+      text: "View changelog",
+      href: "#",
+      attr: { role: "button" }
+    });
+    changelogLink.addEventListener("click", (e) => {
+      var _a;
+      e.preventDefault();
+      (_a = options.onOpenChangelog) == null ? void 0 : _a.call(options);
+    });
+  }
+  return card;
+}
+
+// src/ui/feedback/whatsNewModal.ts
+var import_obsidian24 = require("obsidian");
+
+// src/core/changelogData.ts
+var CHANGELOG_REGISTRY = {
+  "1.2.3": `### \u2728 Improvements
+- **Modern Support & Community Card**: Redesigned the Feedback & Support settings section with a modern card UI featuring pill buttons for Ko-fi ("Support the project"), GitHub Sponsors, and Star on GitHub, along with quick links for feedback, feature requests, GitHub issues, and changelog.
+- **Enhanced Changelog Experience**: Upgraded the What's New dialog to render rich formatted Markdown notes (headings, styled bullet points, badges) instead of raw text.
+- **Reliable Update Notes**: Added an embedded changelog fallback to guarantee release notes display smoothly on every plugin update, even if the GitHub API is offline or rate-limited.
+- **View Changelog Command**: Added **NoteFlare: View changelog** to the Obsidian Command Palette (\`Ctrl/Cmd+P\`) and a direct link inside the settings card.
+
+### \u{1F6E0}\uFE0F Fixes & Compliance
+- Fixed \`@typescript-eslint/no-unsafe-*\` warnings across secret storage and frontmatter transformer modules.
+- Implemented \`getSettingDefinitions()\` on \`NoteFlareSettingsTab\` to comply with Obsidian 1.13+ declarative settings requirements while maintaining backward compatibility.`,
+  "1.2.2": `### \u{1F6E0}\uFE0F Fixes
+- **Obsidian 1.13+ Support**: Fixed Setup Wizard not starting on Obsidian 1.13.0+.
+- **Secure Persistence**: Integrated Obsidian's native Secret Storage API for tokens with graceful fallback.
+
+### \u2728 Improvements
+- Added **NoteFlare: Open setup wizard** command to the Command Palette.
+- Setup Wizard launches automatically on initial install/activation.`,
+  "1.2.1": `### \u{1F512} Security & Compliance
+- Replaced dynamic external scripts with native Obsidian DOM helpers.
+- Enhanced CSS selector specificity for button styles.
+- Cleaned up internal registry dependencies.`,
+  "1.2.0": `### \u2728 Features & Feedback
+- Direct feedback and feature request workflows.
+- Automatic update notifications.
+- Integrated Ko-fi support and GitHub sponsorship.`,
+  "1.1.3": `### \u26A1 Improvements
+- Simplified setup flow for Cloudflare Pages.
+- Better cleanup warnings when unlinking sites.
+- Stability fixes for connection persistence.`
+};
+function getChangelogForVersion(version) {
+  const clean = version.replace(/^v/, "").trim();
+  if (CHANGELOG_REGISTRY[clean]) {
+    return CHANGELOG_REGISTRY[clean];
+  }
+  return CHANGELOG_REGISTRY["1.2.3"] || "See full release history on GitHub.";
+}
+
+// src/ui/feedback/whatsNewModal.ts
+var WhatsNewModal = class extends import_obsidian24.Modal {
+  constructor(app, version, release) {
+    super(app);
+    this.version = version;
+    this.release = release;
+    this.component = new import_obsidian24.Component();
+  }
+  onOpen() {
+    var _a, _b, _c;
+    this.component.load();
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("nf-whatsnew-modal");
+    const headerEl = contentEl.createDiv({ cls: "nf-whatsnew-header" });
+    headerEl.createSpan({ cls: "nf-version-badge", text: `v${this.version}` });
+    this.titleEl.setText(`What\u2019s new in NoteFlare`);
+    const body = ((_b = (_a = this.release) == null ? void 0 : _a.body) == null ? void 0 : _b.trim()) || getChangelogForVersion(this.version);
+    const notesEl = contentEl.createDiv({ cls: "nf-whatsnew-body markdown-rendered" });
+    void import_obsidian24.MarkdownRenderer.render(this.app, body, notesEl, "", this.component);
+    renderSupportCard(contentEl, this.app);
+    const releaseUrl = ((_c = this.release) == null ? void 0 : _c.htmlUrl) || `https://github.com/${NOTEFLARE_GITHUB_REPO}/releases`;
+    new import_obsidian24.Setting(contentEl).addButton((b) => {
+      b.setButtonText("View on GitHub \u2197");
+      b.onClick(() => {
+        window.open(releaseUrl, "_blank");
+      });
+    }).addButton((b) => {
+      b.setButtonText("Got it").setCta();
+      b.onClick(() => {
+        this.close();
+      });
+    });
+  }
+  onClose() {
+    this.component.unload();
+    this.contentEl.empty();
+  }
+};
+
 // src/ui/settings/manage/feedbackSection.ts
 function renderFeedbackSection(tab, el) {
-  const heading = new import_obsidian23.Setting(el);
-  heading.setName("Feedback");
+  const heading = new import_obsidian25.Setting(el);
+  heading.setName("Feedback & support");
   heading.setHeading();
-  new import_obsidian23.Setting(el).setName("Send feedback").setDesc("Share what\u2019s working, what\u2019s confusing, or what broke. Opens in your browser.").addButton((b) => {
-    b.setButtonText("Give feedback");
-    b.onClick(() => {
-      new FeedbackModal(tab.app).open();
-    });
-  });
-  new import_obsidian23.Setting(el).setName("Request a feature").setDesc("Tell us what you\u2019d like NoteFlare to do next. Opens in your browser.").addButton((b) => {
-    b.setButtonText("Request feature");
-    b.setCta();
-    b.onClick(() => {
-      window.open(featureRequestFormUrl(), "_blank");
-    });
-  });
-  new import_obsidian23.Setting(el).setName("Report a bug").setDesc("Files a GitHub issue \u2014 attach screenshots or videos there. Opens in your browser.").addButton((b) => {
-    b.setButtonText("Report bug");
-    b.onClick(() => {
-      window.open(bugReportFormUrl(), "_blank");
-    });
+  const container = el.createDiv({ cls: "nf-feedback-card-wrapper" });
+  renderSupportCard(container, tab.app, {
+    onOpenChangelog: () => {
+      new WhatsNewModal(tab.app, tab.plugin.manifest.version, null).open();
+    }
   });
 }
 
 // src/ui/settings/settingsTab.ts
-var NoteFlareSettingsTab = class extends import_obsidian24.PluginSettingTab {
+var NoteFlareSettingsTab = class extends import_obsidian26.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.isCloudflareConnectFlowOpen = false;
@@ -5852,6 +6012,9 @@ var NoteFlareSettingsTab = class extends import_obsidian24.PluginSettingTab {
     const s = this.plugin.settings;
     if (s.githubToken && s.githubOwner) return "hosting";
     return "github";
+  }
+  getSettingDefinitions() {
+    return [];
   }
   display() {
     this.render();
@@ -5915,10 +6078,10 @@ var NoteFlareSettingsTab = class extends import_obsidian24.PluginSettingTab {
   }
   renderResetFooter(el) {
     const divider = el.createDiv("nf-reset-footer");
-    const dangerHeading = new import_obsidian24.Setting(divider);
+    const dangerHeading = new import_obsidian26.Setting(divider);
     dangerHeading.setName("Danger zone");
     dangerHeading.setHeading();
-    const resetSetting = new import_obsidian24.Setting(divider);
+    const resetSetting = new import_obsidian26.Setting(divider);
     resetSetting.setName("Hard reset NoteFlare");
     resetSetting.setDesc(
       "Clears all NoteFlare data \u2014 tokens, every site, and all configuration. Your GitHub repos and Cloudflare projects are NOT deleted and can be reconnected any time."
@@ -5976,7 +6139,7 @@ var StatusBar = class {
 };
 
 // src/ui/noteflareView.ts
-var import_obsidian25 = require("obsidian");
+var import_obsidian27 = require("obsidian");
 var VIEW_TYPE_NOTEFLARE = "noteflare-panel";
 var CLOUDFLARE_APP_URL3 = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
 function relativeTime(iso) {
@@ -5991,7 +6154,7 @@ function relativeTime(iso) {
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
 }
-var NoteFlareView = class extends import_obsidian25.ItemView {
+var NoteFlareView = class extends import_obsidian27.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -6065,7 +6228,7 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
     const hasFailed = site.lastPublishFailed && !isPublishing;
     const isLive = site.isPublished && !hasFailed;
     const live = (_a = this.plugin.liveStatus[site.id]) != null ? _a : null;
-    new import_obsidian25.Setting(root).setName("Current site").addDropdown((d) => {
+    new import_obsidian27.Setting(root).setName("Current site").addDropdown((d) => {
       for (const sp of s.sites) {
         d.addOption(sp.id, sp.name || sp.githubRepo);
       }
@@ -6095,7 +6258,7 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
       });
     }
     let updateVisibility;
-    new import_obsidian25.Setting(root).setName("Publish scope").setDesc("Configure what to publish: the entire vault or selected files/folders.").addDropdown((d) => {
+    new import_obsidian27.Setting(root).setName("Publish scope").setDesc("Configure what to publish: the entire vault or selected files/folders.").addDropdown((d) => {
       d.addOption("vault", "Full Vault");
       d.addOption("selected", "Selected Files/Folders");
       d.setValue(site.publishScope || "vault");
@@ -6166,7 +6329,7 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
           const iconSpan = chip.createSpan();
           const abstractFile = this.app.vault.getAbstractFileByPath(paths[i]);
           const isFolder = abstractFile && "children" in abstractFile;
-          (0, import_obsidian25.setIcon)(iconSpan, isFolder ? "folder" : "file-text");
+          (0, import_obsidian27.setIcon)(iconSpan, isFolder ? "folder" : "file-text");
           iconSpan.setCssStyles({
             display: "flex",
             alignItems: "center",
@@ -6176,7 +6339,7 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
           });
           chip.createSpan({ text: paths[i] });
           const removeBtn = chip.createSpan({ cls: "clickable-icon" });
-          (0, import_obsidian25.setIcon)(removeBtn, "x");
+          (0, import_obsidian27.setIcon)(removeBtn, "x");
           removeBtn.setCssStyles({
             display: "flex",
             alignItems: "center",
@@ -6199,7 +6362,7 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
       renderPaths();
     };
     updateVisibility();
-    new import_obsidian25.Setting(root).setName("Advanced").setDesc("Configure metadata, styling, and exclusions for this site.").addButton((b) => {
+    new import_obsidian27.Setting(root).setName("Advanced").setDesc("Configure metadata, styling, and exclusions for this site.").addButton((b) => {
       b.setButtonText("Edit").onClick(() => {
         new EditSiteModal(this.app, this.plugin, site, () => this.refresh()).open();
       });
@@ -6360,9 +6523,9 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
       borderRadius: "var(--radius-s)",
       marginBottom: "15px"
     });
-    const actionHeading = new import_obsidian25.Setting(actionBox).setName("Actions").setHeading();
+    const actionHeading = new import_obsidian27.Setting(actionBox).setName("Actions").setHeading();
     actionHeading.settingEl.setCssStyles({ border: "none", padding: "0", marginBottom: "12px" });
-    const actionSetting = new import_obsidian25.Setting(actionBox);
+    const actionSetting = new import_obsidian27.Setting(actionBox);
     actionSetting.settingEl.setCssStyles({ border: "none", padding: "0" });
     actionSetting.infoEl.setCssStyles({ display: "none" });
     actionSetting.controlEl.setCssStyles({
@@ -6442,7 +6605,10 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
 function resolveSafeStorage() {
   var _a, _b, _c;
   try {
-    const electron = require("electron");
+    const req = typeof require === "function" ? require : null;
+    if (!req) return null;
+    const electron = req("electron");
+    if (!electron) return null;
     return (_c = (_b = electron.safeStorage) != null ? _b : (_a = electron.remote) == null ? void 0 : _a.safeStorage) != null ? _c : null;
   } catch (e) {
     return null;
@@ -6461,13 +6627,17 @@ function encryptSecret(plain) {
   if (!isSecureStorageAvailable()) {
     throw new Error("Secure storage is unavailable on this system.");
   }
-  return safeStorage.encryptString(plain).toString("base64");
+  const encrypted = safeStorage.encryptString(plain);
+  return encrypted.toString("base64");
 }
 function decryptSecret(b64) {
   if (!b64) return "";
   if (!isSecureStorageAvailable()) return "";
   try {
-    return safeStorage.decryptString(Buffer.from(b64, "base64"));
+    const nodeBuffer = typeof window !== "undefined" ? window.Buffer : void 0;
+    if (!nodeBuffer) return "";
+    const buf = nodeBuffer.from(b64, "base64");
+    return safeStorage.decryptString(buf);
   } catch (e) {
     return "";
   }
@@ -6651,8 +6821,8 @@ var BackupScheduler = class {
 };
 
 // src/ui/feedback/uninstallModal.ts
-var import_obsidian26 = require("obsidian");
-var UninstallFeedbackModal = class extends import_obsidian26.Modal {
+var import_obsidian28 = require("obsidian");
+var UninstallFeedbackModal = class extends import_obsidian28.Modal {
   constructor(app, onFinished) {
     super(app);
     this.onFinished = onFinished;
@@ -6692,99 +6862,8 @@ var UninstallFeedbackModal = class extends import_obsidian26.Modal {
   }
 };
 
-// src/ui/feedback/whatsNewModal.ts
-var import_obsidian27 = require("obsidian");
-
-// src/ui/feedback/kofiWidget.ts
-function mountKofiWidget(container) {
-  container.empty();
-  const link = container.createEl("a", {
-    cls: "nf-kofi-button",
-    text: `\u2615 ${KOFI_BUTTON_LABEL}`,
-    href: KOFI_URL,
-    attr: {
-      target: "_blank",
-      rel: "noopener noreferrer",
-      "aria-label": KOFI_BUTTON_LABEL
-    }
-  });
-  link.setCssStyles({
-    backgroundColor: KOFI_BUTTON_COLOR,
-    color: "#ffffff"
-  });
-  link.addEventListener("click", (e) => {
-    e.preventDefault();
-    window.open(KOFI_URL, "_blank");
-  });
-}
-
-// src/ui/feedback/whatsNewModal.ts
-var WhatsNewModal = class extends import_obsidian27.Modal {
-  constructor(app, version, release) {
-    super(app);
-    this.version = version;
-    this.release = release;
-  }
-  onOpen() {
-    var _a, _b, _c, _d, _e;
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass("nf-feedback-modal");
-    const title = ((_b = (_a = this.release) == null ? void 0 : _a.name) == null ? void 0 : _b.trim()) || `NoteFlare ${this.version}`;
-    this.titleEl.setText(`What's new \u2014 ${title}`);
-    contentEl.createEl("p", {
-      cls: "setting-item-description",
-      text: `Updated to ${this.version}. Here\u2019s what changed:`
-    });
-    const notes = contentEl.createDiv({ cls: "nf-release-notes" });
-    const body = (_d = (_c = this.release) == null ? void 0 : _c.body) == null ? void 0 : _d.trim();
-    if (body) {
-      notes.createEl("pre", { cls: "nf-release-body", text: body });
-    } else {
-      notes.createEl("p", {
-        cls: "setting-item-description",
-        text: "Release notes for this version are not available yet. You can still view the full release history on GitHub."
-      });
-    }
-    const releaseUrl = (_e = this.release) == null ? void 0 : _e.htmlUrl;
-    if (releaseUrl) {
-      new import_obsidian27.Setting(contentEl).addButton((b) => {
-        b.setButtonText(body ? "View release on GitHub" : "View releases on GitHub");
-        b.onClick(() => {
-          window.open(releaseUrl, "_blank");
-        });
-      });
-    }
-    const support = contentEl.createDiv({ cls: "nf-kofi-support" });
-    support.createEl("p", {
-      cls: "nf-whatsnew-feedback-prompt",
-      text: "If NoteFlare helps you, you can support development on Ko-fi."
-    });
-    const kofiHost = support.createDiv({ cls: "nf-kofi-widget-host" });
-    void mountKofiWidget(kofiHost);
-    contentEl.createEl("p", {
-      cls: "nf-whatsnew-feedback-prompt",
-      text: "How\u2019s the update going? We\u2019d love your feedback."
-    });
-    new import_obsidian27.Setting(contentEl).addButton((b) => {
-      b.setButtonText("Give feedback").setCta();
-      b.onClick(() => {
-        this.close();
-        new FeedbackModal(this.app, "general").open();
-      });
-    }).addButton(
-      (b) => b.setButtonText("Dismiss").onClick(() => {
-        this.close();
-      })
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-
 // main.ts
-var NoteFlarePlugin = class extends import_obsidian28.Plugin {
+var NoteFlarePlugin = class extends import_obsidian29.Plugin {
   constructor() {
     super(...arguments);
     this.ribbonEl = null;
@@ -6800,14 +6879,14 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     if (this.settings.githubToken && this.settings.githubOwner && this.settings.sites.length === 0) {
       const registry = await VaultRegistry.load(this.app);
       if (registry.entries.length > 0) {
-        new import_obsidian28.Notice(
+        new import_obsidian29.Notice(
           `NoteFlare found ${registry.entries.length} previously configured site${registry.entries.length === 1 ? "" : "s"} in your vault. Open NoteFlare settings to restore them.`,
           1e4
         );
       }
     }
     if (!this.getSecretStorage() && !isSecureStorageAvailable()) {
-      new import_obsidian28.Notice(
+      new import_obsidian29.Notice(
         "NoteFlare: secure token storage is unavailable on this system. Your tokens will not be saved between sessions \u2014 you may need to re-enter them.",
         1e4
       );
@@ -6846,6 +6925,11 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       id: "backup-now",
       name: "Back up vault now",
       callback: () => void this.doBackup(false)
+    });
+    this.addCommand({
+      id: "view-changelog",
+      name: "View changelog",
+      callback: () => new WhatsNewModal(this.app, this.manifest.version, null).open()
     });
     this.addSettingTab(new NoteFlareSettingsTab(this.app, this));
     new BackupScheduler(this).registerAutomation();
@@ -6927,13 +7011,13 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
   async doBackup(background = false) {
     var _a;
     if (this.backupInProgress) {
-      if (!background) new import_obsidian28.Notice("A backup is already running.");
+      if (!background) new import_obsidian29.Notice("A backup is already running.");
       return;
     }
     if (!this.settings.setupComplete || !this.settings.enableBackup) {
       if (!background) {
         this.openSettingsTab();
-        new import_obsidian28.Notice("Enable private backup in NoteFlare settings first.");
+        new import_obsidian29.Notice("Enable private backup in NoteFlare settings first.");
       }
       return;
     }
@@ -6953,7 +7037,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       await this.saveSettings();
       if (!background) {
         const message = result.updated > 0 ? `Backup complete \xB7 ${result.updated} file${result.updated === 1 ? "" : "s"} updated` : "Backup is already up to date";
-        new import_obsidian28.Notice(message, 5e3);
+        new import_obsidian29.Notice(message, 5e3);
       }
     } catch (error) {
       const message = this.toUserMessage(error, "Backup failed.");
@@ -6961,7 +7045,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       await this.saveSettings();
       if (!background) {
         this.statusBar.setError(message);
-        new import_obsidian28.Notice(message, 8e3);
+        new import_obsidian29.Notice(message, 8e3);
       } else {
         console.error(`NoteFlare background backup failed: ${message}`);
       }
@@ -6974,7 +7058,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     const site = this.getActiveSite();
     if (!this.settings.setupComplete || !site) {
       this.openSettingsTab();
-      new import_obsidian28.Notice("Add a site before publishing.");
+      new import_obsidian29.Notice("Add a site before publishing.");
       return;
     }
     if (this.publishInProgress[site.id]) return;
@@ -6993,7 +7077,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       site.lastPublishError = message;
       site.isPublished = false;
       this.statusBar.setError(message);
-      new import_obsidian28.Notice(message, 8e3);
+      new import_obsidian29.Notice(message, 8e3);
       await this.saveSettings();
     } finally {
       this.publishInProgress[site.id] = false;
@@ -7004,7 +7088,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     const site = this.getActiveSite();
     if (!this.settings.setupComplete || !site) {
       this.openSettingsTab();
-      new import_obsidian28.Notice("Add a site first.");
+      new import_obsidian29.Notice("Add a site first.");
       return;
     }
     const publisher = new Publisher(this.settings, site, this.app, (message) => {
@@ -7016,11 +7100,11 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       site.isPublished = false;
       await this.saveSettings();
       this.updateStatusBar();
-      new import_obsidian28.Notice("Your site is now offline. You can publish again any time.");
+      new import_obsidian29.Notice("Your site is now offline. You can publish again any time.");
     } catch (err) {
       const message = this.toUserMessage(err, "Unpublish failed. Check your Cloudflare settings and try again.");
       this.statusBar.setError(message);
-      new import_obsidian28.Notice(message, 8e3);
+      new import_obsidian29.Notice(message, 8e3);
     }
   }
   getSecretStorage() {
@@ -7089,7 +7173,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
   updateRibbonIcon() {
     if (!this.ribbonEl) return;
     const live = this.isActiveLive();
-    (0, import_obsidian28.setIcon)(this.ribbonEl, live ? "cloud-check" : "cloud-upload");
+    (0, import_obsidian29.setIcon)(this.ribbonEl, live ? "cloud-check" : "cloud-upload");
     this.ribbonEl.setAttribute(
       "aria-label",
       live ? "NoteFlare: Unpublish site" : "NoteFlare: Publish site"
@@ -7123,13 +7207,13 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     if (result.success) {
       this.statusBar.setLive(result.noteCount, site.siteUrl);
       const fixedNote = result.fixed > 0 ? ` (auto-fixed ${result.fixed} frontmatter issue${result.fixed === 1 ? "" : "s"})` : "";
-      new import_obsidian28.Notice(`Published ${result.noteCount} file${result.noteCount === 1 ? "" : "s"} to ${site.siteUrl}${fixedNote}`, 6e3);
+      new import_obsidian29.Notice(`Published ${result.noteCount} file${result.noteCount === 1 ? "" : "s"} to ${site.siteUrl}${fixedNote}`, 6e3);
       void this.fetchLiveStatus(site);
       return;
     }
     const firstError = (_b = result.errors[0]) != null ? _b : "Publishing failed. Review your setup and try again.";
     this.statusBar.setError(firstError);
-    new import_obsidian28.Notice(`Failed to publish: ${firstError}`, 8e3);
+    new import_obsidian29.Notice(`Failed to publish: ${firstError}`, 8e3);
   }
   /**
    * Fetch live GitHub status for the given site and cache it in `liveStatus`.

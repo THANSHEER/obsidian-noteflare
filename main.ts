@@ -107,6 +107,11 @@ export default class NoteFlarePlugin extends Plugin {
       name: 'Back up vault now',
       callback: () => void this.doBackup(false),
     });
+    this.addCommand({
+      id: 'view-changelog',
+      name: 'View changelog',
+      callback: () => new WhatsNewModal(this.app, this.manifest.version, null).open(),
+    });
 
     this.addSettingTab(new NoteFlareSettingsTab(this.app, this));
     
