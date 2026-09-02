@@ -1,0 +1,55 @@
+name: Obsidian Automated Review & CI
+
+on:
+  push:
+    branches:
+      - '**' # Triggers on push to ANY branch
+    tags-ignore:
+      - '*' # Tags are handled by release workflow
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate:
+    name: Run Obsidian Security & Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript Type Check
+        run: npx tsc --noEmit --noUnusedLocals --noUnusedParameters
+
+      - name: Obsidian Official Linter & Security Scan
+        run: npm run lint
+
+      - name: Security Vulnerability Scan
+        run: npm audit --audit-level=high
+
+      - name: Run Test Suite
+        run: npm test
+
+      - name: Verify Build
+        run: npm run build
+
+      - name: Verify Release Artifacts
+        run: |
+          if [ ! -f main.js ]; then
+            echo "::error::main.js was not generated during build"
+            exit 1
+          fi
+          if [ ! -f manifest.json ]; then
+            echo "::error::manifest.json is missing"
+            exit 1
+          fi
+          echo "All required Obsidian build artifacts verified successfully!"

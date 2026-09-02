@@ -1,5 +1,10 @@
 // A simple mock for Obsidian API to allow tests to run without the actual environment
 export class App {
+  secretStorage = {
+    getSecret: jest.fn(() => null as string | null),
+    setSecret: jest.fn(),
+    listSecrets: jest.fn(() => [] as string[]),
+  };
   vault = {
     getFiles: jest.fn(() => [] as TFile[]),
     getAbstractFileByPath: jest.fn(() => null as any),

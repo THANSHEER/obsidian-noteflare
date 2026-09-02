@@ -29,6 +29,11 @@ export interface LiveSiteStatus {
   error: string;    // non-empty if last fetch failed
 }
 
+interface SecretStorageLike {
+  getSecret(id: string): string | null;
+  setSecret(id: string, secret: string): void;
+}
+
 export default class NoteFlarePlugin extends Plugin {
   settings!: NoteFlareSettings;
   statusBar!: StatusBar;
@@ -56,7 +61,7 @@ export default class NoteFlarePlugin extends Plugin {
       }
     }
 
-    if (!isSecureStorageAvailable()) {
+    if (!this.getSecretStorage() && !isSecureStorageAvailable()) {
       new Notice(
         'NoteFlare: secure token storage is unavailable on this system. Your tokens will not be saved between sessions — you may need to re-enter them.',
         10000,
@@ -77,6 +82,11 @@ export default class NoteFlarePlugin extends Plugin {
     );
     this.updateRibbonIcon();
 
+    this.addCommand({
+      id: 'open-wizard',
+      name: 'Open setup wizard',
+      callback: () => this.openSettingsTab(),
+    });
     this.addCommand({
       id: 'open-panel',
       name: 'Open panel',
@@ -105,6 +115,9 @@ export default class NoteFlarePlugin extends Plugin {
     // After UI is ready, surface GitHub release notes when the plugin version changed.
     this.app.workspace.onLayoutReady(() => {
       void this.checkForUpdateNotes();
+      if (!this.settings.setupComplete) {
+        this.openSettingsTab();
+      }
     });
   }
 
@@ -307,10 +320,26 @@ export default class NoteFlarePlugin extends Plugin {
     }
   }
 
+  private getSecretStorage(): SecretStorageLike | null {
+    return (this.app as unknown as { secretStorage?: SecretStorageLike }).secretStorage ?? null;
+  }
+
   async loadSettings(): Promise<void> {
     const loaded = (await this.loadData()) as Record<string, unknown> | null;
     const { settings } = migrateSettings(loaded);
     this.settings = settings;
+
+    const secretStore = this.getSecretStorage();
+    if (secretStore) {
+      try {
+        const gh = secretStore.getSecret('noteflare-github-token');
+        if (gh) this.settings.githubToken = gh;
+        const cf = secretStore.getSecret('noteflare-cloudflare-token');
+        if (cf) this.settings.cloudflareToken = cf;
+      } catch (e) {
+        console.warn('NoteFlare: could not read from secretStorage:', e);
+      }
+    }
   }
 
   async saveSettings(): Promise<void> {
@@ -319,6 +348,17 @@ export default class NoteFlarePlugin extends Plugin {
     // stay in memory for the session) rather than being written in the clear.
     const { githubToken, cloudflareToken, ...rest } = this.settings;
     const persisted: Record<string, unknown> = { ...rest };
+
+    const secretStore = this.getSecretStorage();
+    if (secretStore) {
+      try {
+        secretStore.setSecret('noteflare-github-token', githubToken || '');
+        secretStore.setSecret('noteflare-cloudflare-token', cloudflareToken || '');
+      } catch (e) {
+        console.warn('NoteFlare: could not save to secretStorage:', e);
+      }
+    }
+
     if (isSecureStorageAvailable()) {
       persisted.githubTokenEnc = githubToken ? encryptSecret(githubToken) : '';
       persisted.cloudflareTokenEnc = cloudflareToken ? encryptSecret(cloudflareToken) : '';

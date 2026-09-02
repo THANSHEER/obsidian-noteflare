@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/THANSHEER/obsidian-noteflare/main/assets/logo.svg" alt="NoteFlare Logo" width="200" />
+  <img src="public/logo.svg" alt="NoteFlare Logo" width="140" />
 
   # NoteFlare for Obsidian
 

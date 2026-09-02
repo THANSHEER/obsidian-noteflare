@@ -47,16 +47,13 @@ var require_utils = __commonJS({
     };
     exports.find = (node, type) => node.nodes.find((node2) => node2.type === type);
     exports.exceedsLimit = (min, max, step = 1, limit) => {
-      if (limit === false)
-        return false;
-      if (!exports.isInteger(min) || !exports.isInteger(max))
-        return false;
+      if (limit === false) return false;
+      if (!exports.isInteger(min) || !exports.isInteger(max)) return false;
       return (Number(max) - Number(min)) / Number(step) >= limit;
     };
     exports.escapeNode = (block, n = 0, type) => {
       const node = block.nodes[n];
-      if (!node)
-        return;
+      if (!node) return;
       if (type && node.type === type || node.type === "open" || node.type === "close") {
         if (node.escaped !== true) {
           node.value = "\\" + node.value;
@@ -65,8 +62,7 @@ var require_utils = __commonJS({
       }
     };
     exports.encloseBrace = (node) => {
-      if (node.type !== "brace")
-        return false;
+      if (node.type !== "brace") return false;
       if (node.commas >> 0 + node.ranges >> 0 === 0) {
         node.invalid = true;
         return true;
@@ -74,10 +70,8 @@ var require_utils = __commonJS({
       return false;
     };
     exports.isInvalidBrace = (block) => {
-      if (block.type !== "brace")
-        return false;
-      if (block.invalid === true || block.dollar)
-        return true;
+      if (block.type !== "brace") return false;
+      if (block.invalid === true || block.dollar) return true;
       if (block.commas >> 0 + block.ranges >> 0 === 0) {
         block.invalid = true;
         return true;
@@ -95,10 +89,8 @@ var require_utils = __commonJS({
       return node.open === true || node.close === true;
     };
     exports.reduce = (nodes) => nodes.reduce((acc, node) => {
-      if (node.type === "text")
-        acc.push(node.value);
-      if (node.type === "range")
-        node.type = "text";
+      if (node.type === "text") acc.push(node.value);
+      if (node.type === "range") node.type = "text";
       return acc;
     }, []);
     exports.flatten = (...args) => {
@@ -328,8 +320,7 @@ var require_to_regex_range = __commonJS({
     }
     function zip(a, b) {
       let arr = [];
-      for (let i = 0; i < a.length; i++)
-        arr.push([a[i], b[i]]);
+      for (let i = 0; i < a.length; i++) arr.push([a[i], b[i]]);
       return arr;
     }
     function compare(a, b) {
@@ -398,12 +389,9 @@ var require_fill_range = __commonJS({
     var zeros = (input) => {
       let value = `${input}`;
       let index = -1;
-      if (value[0] === "-")
-        value = value.slice(1);
-      if (value === "0")
-        return false;
-      while (value[++index] === "0")
-        ;
+      if (value[0] === "-") value = value.slice(1);
+      if (value === "0") return false;
+      while (value[++index] === "0") ;
       return index > 0;
     };
     var stringify = (start, end, options) => {
@@ -415,8 +403,7 @@ var require_fill_range = __commonJS({
     var pad = (input, maxLength, toNumber) => {
       if (maxLength > 0) {
         let dash = input[0] === "-" ? "-" : "";
-        if (dash)
-          input = input.slice(1);
+        if (dash) input = input.slice(1);
         input = dash + input.padStart(dash ? maxLength - 1 : maxLength, "0");
       }
       if (toNumber === false) {
@@ -430,8 +417,7 @@ var require_fill_range = __commonJS({
         input = input.slice(1);
         maxLength--;
       }
-      while (input.length < maxLength)
-        input = "0" + input;
+      while (input.length < maxLength) input = "0" + input;
       return negative ? "-" + input : input;
     };
     var toSequence = (parts, options, maxLen) => {
@@ -462,8 +448,7 @@ var require_fill_range = __commonJS({
         return toRegexRange(a, b, { wrap: false, ...options });
       }
       let start = String.fromCharCode(a);
-      if (a === b)
-        return start;
+      if (a === b) return start;
       let stop = String.fromCharCode(b);
       return `[${start}-${stop}]`;
     };
@@ -479,8 +464,7 @@ var require_fill_range = __commonJS({
       return new RangeError("Invalid range arguments: " + util.inspect(...args));
     };
     var invalidRange = (start, end, options) => {
-      if (options.strictRanges === true)
-        throw rangeError([start, end]);
+      if (options.strictRanges === true) throw rangeError([start, end]);
       return [];
     };
     var invalidStep = (step, options) => {
@@ -493,14 +477,11 @@ var require_fill_range = __commonJS({
       let a = Number(start);
       let b = Number(end);
       if (!Number.isInteger(a) || !Number.isInteger(b)) {
-        if (options.strictRanges === true)
-          throw rangeError([start, end]);
+        if (options.strictRanges === true) throw rangeError([start, end]);
         return [];
       }
-      if (a === 0)
-        a = 0;
-      if (b === 0)
-        b = 0;
+      if (a === 0) a = 0;
+      if (b === 0) b = 0;
       let descending = a > b;
       let startString = String(start);
       let endString = String(end);
@@ -570,12 +551,10 @@ var require_fill_range = __commonJS({
         return fill(start, end, 0, step);
       }
       let opts = { ...options };
-      if (opts.capture === true)
-        opts.wrap = true;
+      if (opts.capture === true) opts.wrap = true;
       step = step || opts.step || 1;
       if (!isNumber(step)) {
-        if (step != null && !isObject(step))
-          return invalidStep(step, opts);
+        if (step != null && !isObject(step)) return invalidStep(step, opts);
         return fill(start, end, 1, step);
       }
       if (isNumber(start) && isNumber(end)) {
@@ -650,8 +629,7 @@ var require_expand = __commonJS({
       const result = [];
       queue = [].concat(queue);
       stash = [].concat(stash);
-      if (!stash.length)
-        return queue;
+      if (!stash.length) return queue;
       if (!queue.length) {
         return enclose ? utils.flatten(stash).map((ele) => `{${ele}}`) : stash;
       }
@@ -662,8 +640,7 @@ var require_expand = __commonJS({
           }
         } else {
           for (let ele of stash) {
-            if (enclose === true && typeof ele === "string")
-              ele = `{${ele}}`;
+            if (enclose === true && typeof ele === "string") ele = `{${ele}}`;
             result.push(Array.isArray(ele) ? append(item, ele, enclose) : item + ele);
           }
         }
@@ -711,8 +688,7 @@ var require_expand = __commonJS({
         for (let i = 0; i < node.nodes.length; i++) {
           const child = node.nodes[i];
           if (child.type === "comma" && node.type === "brace") {
-            if (i === 1)
-              queue.push("");
+            if (i === 1) queue.push("");
             queue.push("");
             continue;
           }
@@ -970,8 +946,7 @@ var require_parse = __commonJS({
               continue;
             }
             if (next === open) {
-              if (options.keepQuotes === true)
-                value += next;
+              if (options.keepQuotes === true) value += next;
               break;
             }
             value += next;
@@ -1058,12 +1033,9 @@ var require_parse = __commonJS({
         if (block.type !== "root") {
           block.nodes.forEach((node) => {
             if (!node.nodes) {
-              if (node.type === "open")
-                node.isOpen = true;
-              if (node.type === "close")
-                node.isClose = true;
-              if (!node.nodes)
-                node.type = "text";
+              if (node.type === "open") node.isOpen = true;
+              if (node.type === "close") node.isClose = true;
+              if (!node.nodes) node.type = "text";
               node.invalid = true;
             }
           });
@@ -1380,10 +1352,8 @@ var require_utils2 = __commonJS({
     };
     exports.escapeLast = (input, char, lastIdx) => {
       const idx = input.lastIndexOf(char, lastIdx);
-      if (idx === -1)
-        return input;
-      if (input[idx - 1] === "\\")
-        return exports.escapeLast(input, char, idx - 1);
+      if (idx === -1) return input;
+      if (input[idx - 1] === "\\") return exports.escapeLast(input, char, idx - 1);
       return `${input.slice(0, idx)}\\${input.slice(idx)}`;
     };
     exports.removePrefix = (input, state = {}) => {
@@ -1542,8 +1512,7 @@ var require_scan = __commonJS({
           slashes.push(index);
           tokens.push(token);
           token = { value: "", depth: 0, isGlob: false };
-          if (finished === true)
-            continue;
+          if (finished === true) continue;
           if (prev === CHAR_DOT && index === start + 1) {
             start += 2;
             continue;
@@ -1579,8 +1548,7 @@ var require_scan = __commonJS({
           }
         }
         if (code === CHAR_ASTERISK) {
-          if (prev === CHAR_ASTERISK)
-            isGlobstar = token.isGlobstar = true;
+          if (prev === CHAR_ASTERISK) isGlobstar = token.isGlobstar = true;
           isGlob = token.isGlob = true;
           finished = true;
           if (scanToEnd === true) {
@@ -1673,8 +1641,7 @@ var require_scan = __commonJS({
         }
       }
       if (opts.unescape === true) {
-        if (glob)
-          glob = utils.removeBackslashes(glob);
+        if (glob) glob = utils.removeBackslashes(glob);
         if (base && backslashes === true) {
           base = utils.removeBackslashes(base);
         }
@@ -2091,8 +2058,7 @@ var require_parse2 = __commonJS({
         if (extglobs.length && tok.type !== "paren") {
           extglobs[extglobs.length - 1].inner += tok.value;
         }
-        if (tok.value || tok.output)
-          append(tok);
+        if (tok.value || tok.output) append(tok);
         if (prev && prev.type === "text" && tok.type === "text") {
           prev.value += tok.value;
           prev.output = (prev.output || "") + tok.value;
@@ -2429,8 +2395,7 @@ var require_parse2 = __commonJS({
         }
         if (value === ".") {
           if (state.braces > 0 && prev.type === "dot") {
-            if (prev.value === ".")
-              prev.output = DOT_LITERAL;
+            if (prev.value === ".") prev.output = DOT_LITERAL;
             const brace = braces[braces.length - 1];
             prev.type = "dots";
             prev.output += value;
@@ -2645,20 +2610,17 @@ var require_parse2 = __commonJS({
         push(token);
       }
       while (state.brackets > 0) {
-        if (opts.strictBrackets === true)
-          throw new SyntaxError(syntaxError("closing", "]"));
+        if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", "]"));
         state.output = utils.escapeLast(state.output, "[");
         decrement("brackets");
       }
       while (state.parens > 0) {
-        if (opts.strictBrackets === true)
-          throw new SyntaxError(syntaxError("closing", ")"));
+        if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", ")"));
         state.output = utils.escapeLast(state.output, "(");
         decrement("parens");
       }
       while (state.braces > 0) {
-        if (opts.strictBrackets === true)
-          throw new SyntaxError(syntaxError("closing", "}"));
+        if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", "}"));
         state.output = utils.escapeLast(state.output, "{");
         decrement("braces");
       }
@@ -2705,8 +2667,7 @@ var require_parse2 = __commonJS({
         star = `(${star})`;
       }
       const globstar = (opts2) => {
-        if (opts2.noglobstar === true)
-          return star;
+        if (opts2.noglobstar === true) return star;
         return `(${capture}(?:(?!${START_ANCHOR}${opts2.dot ? DOTS_SLASH : DOT_LITERAL}).)*?)`;
       };
       const create = (str) => {
@@ -2729,11 +2690,9 @@ var require_parse2 = __commonJS({
             return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL})?${DOT_LITERAL}${ONE_CHAR}${star}`;
           default: {
             const match = /^(.*?)\.(\w+)$/.exec(str);
-            if (!match)
-              return;
+            if (!match) return;
             const source2 = create(match[1]);
-            if (!source2)
-              return;
+            if (!source2) return;
             return source2 + DOT_LITERAL + match[2];
           }
         }
@@ -2765,8 +2724,7 @@ var require_picomatch = __commonJS({
         const arrayMatcher = (str) => {
           for (const isMatch2 of fns) {
             const state2 = isMatch2(str);
-            if (state2)
-              return state2;
+            if (state2) return state2;
           }
           return false;
         };
@@ -2843,8 +2801,7 @@ var require_picomatch = __commonJS({
     };
     picomatch.isMatch = (str, patterns, options) => picomatch(patterns, options)(str);
     picomatch.parse = (pattern, options) => {
-      if (Array.isArray(pattern))
-        return pattern.map((p) => picomatch.parse(p, options));
+      if (Array.isArray(pattern)) return pattern.map((p) => picomatch.parse(p, options));
       return parse(pattern, { ...options, fastpaths: false });
     };
     picomatch.scan = (input, options) => scan(input, options);
@@ -2883,8 +2840,7 @@ var require_picomatch = __commonJS({
         const opts = options || {};
         return new RegExp(source, opts.flags || (opts.nocase ? "i" : ""));
       } catch (err) {
-        if (options && options.debug === true)
-          throw err;
+        if (options && options.debug === true) throw err;
         return /$^/;
       }
     };
@@ -2930,13 +2886,11 @@ var require_micromatch = __commonJS({
       for (let i = 0; i < patterns.length; i++) {
         let isMatch2 = picomatch(String(patterns[i]), { ...options, onResult }, true);
         let negated = isMatch2.state.negated || isMatch2.state.negatedExtglob;
-        if (negated)
-          negatives++;
+        if (negated) negatives++;
         for (let item of list) {
           let matched = isMatch2(item, true);
           let match = negated ? !matched.isMatch : matched.isMatch;
-          if (!match)
-            continue;
+          if (!match) continue;
           if (negated) {
             omit.add(matched.output);
           } else {
@@ -2966,8 +2920,7 @@ var require_micromatch = __commonJS({
       let result = /* @__PURE__ */ new Set();
       let items = [];
       let onResult = (state) => {
-        if (options.onResult)
-          options.onResult(state);
+        if (options.onResult) options.onResult(state);
         items.push(state.output);
       };
       let matches = new Set(micromatch(list, patterns, { ...options, onResult }));
@@ -3001,8 +2954,7 @@ var require_micromatch = __commonJS({
       }
       let keys = micromatch(Object.keys(obj), patterns, options);
       let res = {};
-      for (let key of keys)
-        res[key] = obj[key];
+      for (let key of keys) res[key] = obj[key];
       return res;
     };
     micromatch.some = (list, patterns, options) => {
@@ -3051,16 +3003,14 @@ var require_micromatch = __commonJS({
       return res;
     };
     micromatch.braces = (pattern, options) => {
-      if (typeof pattern !== "string")
-        throw new TypeError("Expected a string");
+      if (typeof pattern !== "string") throw new TypeError("Expected a string");
       if (options && options.nobrace === true || !hasBraces(pattern)) {
         return [pattern];
       }
       return braces(pattern, options);
     };
     micromatch.braceExpand = (pattern, options) => {
-      if (typeof pattern !== "string")
-        throw new TypeError("Expected a string");
+      if (typeof pattern !== "string") throw new TypeError("Expected a string");
       return micromatch.braces(pattern, { ...options, expand: true });
     };
     micromatch.hasBraces = hasBraces;
@@ -3264,8 +3214,7 @@ var GitHubApi = class {
       const resp = await doRequest(`${GITHUB_API}/repos/${this.owner}/${this.repo}`, {
         headers: this.headers
       });
-      if (!resp.ok)
-        return null;
+      if (!resp.ok) return null;
       const data = await resp.json();
       return {
         htmlUrl: data.html_url || "",
@@ -3289,12 +3238,10 @@ var GitHubApi = class {
         `${GITHUB_API}/repos/${this.owner}/${this.repo}/actions/workflows/${encodeURIComponent(workflowFile)}/runs?per_page=1`,
         { headers: this.headers }
       );
-      if (!resp.ok)
-        return null;
+      if (!resp.ok) return null;
       const data = await resp.json();
       const run = (_a = data.workflow_runs) == null ? void 0 : _a[0];
-      if (!run)
-        return null;
+      if (!run) return null;
       return {
         status: run.status || "",
         conclusion: run.conclusion || "",
@@ -3317,8 +3264,7 @@ var GitHubApi = class {
         `${GITHUB_API}/repos/${this.owner}/${this.repo}/commits/${encodeURIComponent(ref)}`,
         { headers: this.headers }
       );
-      if (!resp.ok)
-        return null;
+      if (!resp.ok) return null;
       const data = await resp.json();
       const commit = data.commit;
       const commitAuthor = commit == null ? void 0 : commit.author;
@@ -3358,8 +3304,7 @@ var GitHubApi = class {
    */
   async commitFiles(files, message, onProgress, onRateLimit, mirrorPrefix = "", options) {
     const result = { success: true, uploaded: 0, noteCount: 0, failed: 0, errors: [], fixed: 0, issues: [] };
-    if (files.length === 0)
-      return result;
+    if (files.length === 0) return result;
     try {
       const exists = await this.repoExists();
       if (!exists) {
@@ -3436,8 +3381,7 @@ var GitHubApi = class {
     }
     if (result.failed > 0) {
       for (let index = treeItems.length - 1; index >= 0; index--) {
-        if (treeItems[index].sha === null)
-          treeItems.splice(index, 1);
+        if (treeItems[index].sha === null) treeItems.splice(index, 1);
       }
       if (treeItems.length === 0) {
         result.success = false;
@@ -3484,8 +3428,7 @@ var GitHubApi = class {
       result.errors.push(`Commit failed: ${err.message}`);
       return result;
     }
-    if (result.failed > 0)
-      result.success = false;
+    if (result.failed > 0) result.success = false;
     return result;
   }
   async createBlobWithRetry(base64Content, onRateLimit) {
@@ -3523,8 +3466,7 @@ var GitHubApi = class {
     let secsLeft = Math.ceil(ms / 1e3);
     const interval = window.setInterval(() => {
       secsLeft--;
-      if (secsLeft >= 0)
-        onTick(secsLeft);
+      if (secsLeft >= 0) onTick(secsLeft);
     }, 1e3);
     await new Promise((r) => window.setTimeout(r, ms));
     window.clearInterval(interval);
@@ -3550,8 +3492,7 @@ var GitHubApi = class {
   async waitForRepo(maxWaitMs = 3e4) {
     const start = Date.now();
     while (Date.now() - start < maxWaitMs) {
-      if (await this.repoExists())
-        return true;
+      if (await this.repoExists()) return true;
       await new Promise((r) => window.setTimeout(r, 2e3));
     }
     return false;
@@ -3603,8 +3544,7 @@ var GitHubApi = class {
     } catch (e) {
       return;
     }
-    if (toDelete.length === 0)
-      return;
+    if (toDelete.length === 0) return;
     const tree = await this.gh(
       `/repos/${this.owner}/${this.repo}/git/trees`,
       "POST",
@@ -3979,8 +3919,7 @@ var FileCollector = class {
       return result;
     }
     for (const file of this.app.vault.getFiles()) {
-      if (this.isExcluded(file.path))
-        continue;
+      if (this.isExcluded(file.path)) continue;
       if (file.extension === "md") {
         result.push(file);
       } else if (this.site.includeAttachments && ATTACHMENT_EXTS.has(file.extension.toLowerCase())) {
@@ -3999,8 +3938,7 @@ var FileCollector = class {
     return btoa(binary);
   }
   isExcluded(path) {
-    if (this.site.excludePatterns.length === 0)
-      return false;
+    if (this.site.excludePatterns.length === 0) return false;
     return (0, import_micromatch.isMatch)(path, this.site.excludePatterns, { dot: true });
   }
 };
@@ -4014,8 +3952,7 @@ var LEADING_BLOCK_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/;
 function hasValidLeadingFrontmatter(raw) {
   const s = raw.replace(/^\ufeff/, "");
   const m = s.match(LEADING_BLOCK_RE);
-  if (!m)
-    return false;
+  if (!m) return false;
   try {
     (0, import_obsidian4.parseYaml)(m[1]);
     return true;
@@ -4028,16 +3965,14 @@ function looksLikeFrontmatterOpener(raw) {
   return stripped.startsWith("---");
 }
 function inspectFrontmatter(raw) {
-  if (hasValidLeadingFrontmatter(raw))
-    return { status: "clean" };
+  if (hasValidLeadingFrontmatter(raw)) return { status: "clean" };
   if (looksLikeFrontmatterOpener(raw)) {
     return { status: "fixed", reason: "stray or unparseable \u201C---\u201D at the top \u2014 would break the mdgarden build" };
   }
   return { status: "clean" };
 }
 function normalizeFrontmatter(raw, title) {
-  if (hasValidLeadingFrontmatter(raw))
-    return raw;
+  if (hasValidLeadingFrontmatter(raw)) return raw;
   const safeTitle = title.replace(/"/g, "'");
   return `---
 title: "${safeTitle}"
@@ -4065,8 +4000,7 @@ var Transformer = class {
   stripPrivateFrontmatter(content) {
     var _a, _b;
     const m = content.match(LEADING_BLOCK_RE2);
-    if (!m)
-      return content;
+    if (!m) return content;
     let data;
     try {
       data = (_a = (0, import_obsidian5.parseYaml)(m[1])) != null ? _a : {};
@@ -4367,8 +4301,7 @@ function renderStepGitHub(tab, el) {
     btn.setButtonText("Verify & continue").setCta();
     btn.onClick(() => {
       void (async () => {
-        if (!tokenValue)
-          return showError(errorEl, "Please enter your GitHub token.");
+        if (!tokenValue) return showError(errorEl, "Please enter your GitHub token.");
         hideError(errorEl);
         busy(btn, "Verifying\u2026");
         try {
@@ -4416,12 +4349,10 @@ function cloudflareSetupHint(rawMessage, repoSlug) {
 }
 async function provisionSite(plugin, name, profileParams, _hostingProvider = "cloudflare") {
   const slug = slugify(name);
-  if (!slug)
-    throw new Error("Please enter a site name.");
+  if (!slug) throw new Error("Please enter a site name.");
   const owner = plugin.settings.githubOwner;
   const repo = plugin.settings.masterRepository;
-  if (!repo)
-    throw new Error("Please configure a Master Repository in settings first.");
+  if (!repo) throw new Error("Please configure a Master Repository in settings first.");
   const site = createSiteProfile({
     name,
     hostingProvider: "cloudflare",
@@ -4605,12 +4536,9 @@ function renderStepHosting(tab, el) {
     btn.onClick(() => {
       void (async () => {
         const nameSlug = slugify(siteName);
-        if (!nameSlug)
-          return showError(errorEl, "Please enter a site name.");
-        if (!masterRepo.trim())
-          return showError(errorEl, "Please enter a repository name.");
-        if (!cfToken)
-          return showError(errorEl, "Please paste your Cloudflare API token.");
+        if (!nameSlug) return showError(errorEl, "Please enter a site name.");
+        if (!masterRepo.trim()) return showError(errorEl, "Please enter a repository name.");
+        if (!cfToken) return showError(errorEl, "Please paste your Cloudflare API token.");
         hideError(errorEl);
         busy(btn, "Setting up\u2026");
         try {
@@ -4730,10 +4658,8 @@ function renderStepDone(tab, el) {
     later.onClick(() => {
       void (async () => {
         tab.hasInitializedWizard = false;
-        if (site)
-          tab.closeSettings();
-        else
-          tab.render();
+        if (site) tab.closeSettings();
+        else tab.render();
       })();
     });
   }).addButton((btn) => {
@@ -4742,10 +4668,8 @@ function renderStepDone(tab, el) {
       void (async () => {
         tab.hasInitializedWizard = false;
         tab.closeSettings();
-        if (site)
-          await tab.plugin.doPublish();
-        else
-          await tab.plugin.doBackup(false);
+        if (site) await tab.plugin.doPublish();
+        else await tab.plugin.doBackup(false);
       })();
     });
   });
@@ -4754,14 +4678,10 @@ function renderStepDone(tab, el) {
 // src/ui/settings/wizard/wizardRenderer.ts
 function renderWizard(tab, el) {
   renderWizardSteps(tab, el);
-  if (tab.wizardStep === "github")
-    renderStepGitHub(tab, el);
-  else if (tab.wizardStep === "hosting")
-    renderStepHosting(tab, el);
-  else if (tab.wizardStep === "backup")
-    renderStepBackup(tab, el);
-  else
-    renderStepDone(tab, el);
+  if (tab.wizardStep === "github") renderStepGitHub(tab, el);
+  else if (tab.wizardStep === "hosting") renderStepHosting(tab, el);
+  else if (tab.wizardStep === "backup") renderStepBackup(tab, el);
+  else renderStepDone(tab, el);
 }
 function renderWizardSteps(tab, el) {
   const steps = [
@@ -4775,10 +4695,8 @@ function renderWizardSteps(tab, el) {
   const wrapper = el.createDiv("nf-wizard-steps");
   steps.forEach(({ label }, i) => {
     const dot = wrapper.createDiv("nf-step-dot");
-    if (i < currentIdx)
-      dot.addClass("completed");
-    else if (i === currentIdx)
-      dot.addClass("active");
+    if (i < currentIdx) dot.addClass("completed");
+    else if (i === currentIdx) dot.addClass("active");
     const labelEl = dot.createSpan("nf-step-label");
     labelEl.setText(label);
   });
@@ -4868,8 +4786,7 @@ async function renderRestoreFromRegistry(tab, el) {
   const registry = await VaultRegistry.load(tab.app);
   const existingIds = new Set(s.sites.map((site) => site.id));
   const orphaned = VaultRegistry.buildRestoredProfiles(registry.entries, existingIds);
-  if (orphaned.length === 0)
-    return;
+  if (orphaned.length === 0) return;
   const restoreSection = el.createDiv("nf-restore-section");
   const restoreHeading = new import_obsidian11.Setting(restoreSection);
   restoreHeading.setName("Previous sites found");
@@ -5042,8 +4959,7 @@ function openCloudflareConnectFlow(tab, containerEl) {
     btn.setButtonText("Save & connect").setCta();
     btn.onClick(() => {
       void (async () => {
-        if (!cfToken)
-          return showError(errorEl, "Please paste your Cloudflare API token.");
+        if (!cfToken) return showError(errorEl, "Please paste your Cloudflare API token.");
         hideError(errorEl);
         busy(btn, "Verifying\u2026");
         try {
@@ -5338,8 +5254,7 @@ var RemoveSiteModal = class extends import_obsidian15.Modal {
       b.onClick(() => {
         void (async () => {
           var _a, _b;
-          if (this.deleting)
-            return;
+          if (this.deleting) return;
           this.deleting = true;
           b.setDisabled(true).setButtonText("Deleting\u2026");
           errorEl.hide();
@@ -5518,8 +5433,7 @@ var ChangeRepoModal = class extends import_obsidian18.Modal {
       });
     });
     new import_obsidian18.Setting(this.contentEl).setName("Migrate or Create New").setDesc("Migrate will update this site. Create New will clone this profile for the new repo.").addButton((b) => b.setButtonText("Migrate").onClick(() => {
-      if (!newRepo)
-        return;
+      if (!newRepo) return;
       this.site.githubRepo = newRepo;
       void this.plugin.saveSettings().then(() => {
         new import_obsidian18.Notice("Repository updated. Publish to provision the new repo.");
@@ -5527,8 +5441,7 @@ var ChangeRepoModal = class extends import_obsidian18.Modal {
         this.onDone();
       });
     })).addButton((b) => b.setButtonText("Create New").setCta().onClick(() => {
-      if (!newRepo)
-        return;
+      if (!newRepo) return;
       const newSite = createSiteProfile({
         ...this.site,
         name: `${this.site.name} (Copy)`,
@@ -5624,8 +5537,7 @@ var EditSiteModal = class extends import_obsidian19.Modal {
         new PathSuggestModal(this.app, (selectedPath) => {
           void (async () => {
             if (selectedPath.trim()) {
-              if (!s.publishPaths)
-                s.publishPaths = [];
+              if (!s.publishPaths) s.publishPaths = [];
               if (!s.publishPaths.includes(selectedPath.trim())) {
                 s.publishPaths.push(selectedPath.trim());
                 await this.plugin.saveSettings();
@@ -5794,8 +5706,7 @@ function uninstallFormUrl() {
   return `${GEEKSTASH_ORIGIN}/${NOTEFLARE_SLUG}/uninstall`;
 }
 function matchesReleaseTag(version, tag) {
-  if (!tag)
-    return false;
+  if (!tag) return false;
   const normalizedVersion = version.startsWith("v") ? version.slice(1) : version;
   const normalizedTag = tag.startsWith("v") ? tag.slice(1) : tag;
   return normalizedTag === normalizedVersion;
@@ -5834,8 +5745,7 @@ var GeekstashApi = class {
       },
       throw: false
     });
-    if (latest.status !== 200)
-      return null;
+    if (latest.status !== 200) return null;
     const data = latest.json;
     if (!matchesReleaseTag(version, data.tag_name)) {
       return {
@@ -5938,18 +5848,9 @@ var NoteFlareSettingsTab = class extends import_obsidian24.PluginSettingTab {
     this.plugin = plugin;
     this.wizardStep = this.getInitialWizardStep();
   }
-  getSettingDefinitions() {
-    return [
-      { id: "publish", name: "Publish", description: "Configure publishing to Cloudflare and GitHub Pages" },
-      { id: "backup", name: "Automated Backup", description: "Configure automatic private repository backups" },
-      { id: "connections", name: "Connections", description: "Manage connected GitHub and Cloudflare accounts" },
-      { id: "feedback", name: "Feedback", description: "Send feedback or request a feature" }
-    ];
-  }
   getInitialWizardStep() {
     const s = this.plugin.settings;
-    if (s.githubToken && s.githubOwner)
-      return "hosting";
+    if (s.githubToken && s.githubOwner) return "hosting";
     return "github";
   }
   display() {
@@ -6079,19 +5980,14 @@ var import_obsidian25 = require("obsidian");
 var VIEW_TYPE_NOTEFLARE = "noteflare-panel";
 var CLOUDFLARE_APP_URL3 = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
 function relativeTime(iso) {
-  if (!iso)
-    return "";
+  if (!iso) return "";
   const diffMs = Date.now() - new Date(iso).getTime();
-  if (isNaN(diffMs))
-    return "";
+  if (isNaN(diffMs)) return "";
   const mins = Math.floor(diffMs / 6e4);
-  if (mins < 1)
-    return "just now";
-  if (mins < 60)
-    return `${mins} min ago`;
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24)
-    return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
 }
@@ -6113,8 +6009,7 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
   async onOpen() {
     await this.render();
     const site = this.plugin.getActiveSite();
-    if (site)
-      void this.plugin.fetchLiveStatus(site);
+    if (site) void this.plugin.fetchLiveStatus(site);
   }
   async onClose() {
   }
@@ -6232,8 +6127,7 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
       addBtn.addEventListener("click", () => {
         new PathSuggestModal(this.app, (selectedPath) => {
           void (async () => {
-            if (!site.publishPaths)
-              site.publishPaths = [];
+            if (!site.publishPaths) site.publishPaths = [];
             if (!site.publishPaths.includes(selectedPath)) {
               site.publishPaths.push(selectedPath);
               await this.plugin.saveSettings();
@@ -6370,12 +6264,10 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
     badgeEl.setText(`${badgeEmoji} ${badgeText}`);
     const refreshBtn = headerRow.createEl("button", { text: (live == null ? void 0 : live.loading) ? "\u2026" : "\u21BB Refresh" });
     refreshBtn.setCssStyles({ fontSize: "var(--font-ui-smaller)", padding: "2px 8px" });
-    if (live == null ? void 0 : live.loading)
-      refreshBtn.setAttr("disabled", "true");
+    if (live == null ? void 0 : live.loading) refreshBtn.setAttr("disabled", "true");
     refreshBtn.addEventListener("click", () => {
       const s = this.plugin.getActiveSite();
-      if (s)
-        void this.plugin.fetchLiveStatus(s);
+      if (s) void this.plugin.fetchLiveStatus(s);
     });
     const grid = card.createDiv();
     grid.setCssStyles({
@@ -6535,10 +6427,8 @@ var NoteFlareView = class extends import_obsidian25.ItemView {
       const deleteTooltip = hostingProvider === "cloudflare" ? "Removes the Cloudflare Pages project (API) and the site folder from GitHub" : "Removes the site folder from GitHub. GitHub Pages link may remain \u2014 disable it manually in repo Settings \u2192 Pages";
       b.setButtonText("Delete");
       b.setTooltip(deleteTooltip);
-      if (isPublishing)
-        b.setDisabled(true);
-      else
-        b.buttonEl.addClass("mod-warning");
+      if (isPublishing) b.setDisabled(true);
+      else b.buttonEl.addClass("mod-warning");
       b.onClick(() => {
         new RemoveSiteModal(this.app, this.plugin, site, () => {
           this.refresh();
@@ -6567,18 +6457,15 @@ function isSecureStorageAvailable() {
   }
 }
 function encryptSecret(plain) {
-  if (!plain)
-    return "";
+  if (!plain) return "";
   if (!isSecureStorageAvailable()) {
     throw new Error("Secure storage is unavailable on this system.");
   }
   return safeStorage.encryptString(plain).toString("base64");
 }
 function decryptSecret(b64) {
-  if (!b64)
-    return "";
-  if (!isSecureStorageAvailable())
-    return "";
+  if (!b64) return "";
+  if (!isSecureStorageAvailable()) return "";
   try {
     return safeStorage.decryptString(Buffer.from(b64, "base64"));
   } catch (e) {
@@ -6647,8 +6534,7 @@ var BackupEngine = class {
           uploads.push({ path, content: null });
         }
       }
-      if (uploads.length === 0)
-        return result;
+      if (uploads.length === 0) return result;
       const timestamp = (/* @__PURE__ */ new Date()).toLocaleString();
       const committed = await github.commitFiles(
         uploads,
@@ -6670,8 +6556,7 @@ var BackupEngine = class {
   async collectLocalFiles() {
     const files = /* @__PURE__ */ new Map();
     for (const file of this.app.vault.getFiles()) {
-      if (this.isIgnored(file.path))
-        continue;
+      if (this.isIgnored(file.path)) continue;
       try {
         const bytes = new Uint8Array(await this.app.vault.readBinary(file));
         files.set(file.path, {
@@ -6691,15 +6576,13 @@ var BackupEngine = class {
       );
     } catch (error) {
       const status = error.status;
-      if (status === 404 || error.message.includes("404"))
-        return /* @__PURE__ */ new Map();
+      if (status === 404 || error.message.includes("404")) return /* @__PURE__ */ new Map();
       throw error;
     }
   }
   isIgnored(path) {
     const configDir = this.app.vault.configDir;
-    if (path === configDir || path.startsWith(`${configDir}/`))
-      return true;
+    if (path === configDir || path.startsWith(`${configDir}/`)) return true;
     return DEFAULT_IGNORE_PATTERNS.some((pattern) => {
       if (pattern.endsWith("/")) {
         return path === pattern.slice(0, -1) || path.startsWith(pattern);
@@ -6734,10 +6617,8 @@ var BackupScheduler = class {
   registerAutomation() {
     const { app } = this.plugin;
     const queueAfterChange = () => {
-      if (!this.plugin.settings.enableBackup || !this.plugin.settings.backup.backupOnChange)
-        return;
-      if (this.backupDebounceTimer !== null)
-        window.clearTimeout(this.backupDebounceTimer);
+      if (!this.plugin.settings.enableBackup || !this.plugin.settings.backup.backupOnChange) return;
+      if (this.backupDebounceTimer !== null) window.clearTimeout(this.backupDebounceTimer);
       this.backupDebounceTimer = window.setTimeout(() => {
         this.backupDebounceTimer = null;
         void this.plugin.doBackup(true);
@@ -6748,8 +6629,7 @@ var BackupScheduler = class {
     this.plugin.registerEvent(app.vault.on("delete", queueAfterChange));
     this.plugin.registerEvent(app.vault.on("rename", queueAfterChange));
     this.plugin.register(() => {
-      if (this.backupDebounceTimer !== null)
-        window.clearTimeout(this.backupDebounceTimer);
+      if (this.backupDebounceTimer !== null) window.clearTimeout(this.backupDebounceTimer);
     });
     this.plugin.registerInterval(window.setInterval(() => {
       void this.runScheduledBackupIfDue();
@@ -6926,7 +6806,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
         );
       }
     }
-    if (!isSecureStorageAvailable()) {
+    if (!this.getSecretStorage() && !isSecureStorageAvailable()) {
       new import_obsidian28.Notice(
         "NoteFlare: secure token storage is unavailable on this system. Your tokens will not be saved between sessions \u2014 you may need to re-enter them.",
         1e4
@@ -6942,6 +6822,11 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       () => void this.activateView()
     );
     this.updateRibbonIcon();
+    this.addCommand({
+      id: "open-wizard",
+      name: "Open setup wizard",
+      callback: () => this.openSettingsTab()
+    });
     this.addCommand({
       id: "open-panel",
       name: "Open panel",
@@ -6966,11 +6851,13 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     new BackupScheduler(this).registerAutomation();
     this.app.workspace.onLayoutReady(() => {
       void this.checkForUpdateNotes();
+      if (!this.settings.setupComplete) {
+        this.openSettingsTab();
+      }
     });
   }
   onunload() {
-    if (!this.app.workspace.layoutReady)
-      return;
+    if (!this.app.workspace.layoutReady) return;
     try {
       new UninstallFeedbackModal(this.app).open();
     } catch (e) {
@@ -6979,8 +6866,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
   }
   /** Show What's New when manifest.version differs from the last acknowledged version. */
   async checkForUpdateNotes() {
-    if (this.hasCheckedForUpdateNotes)
-      return;
+    if (this.hasCheckedForUpdateNotes) return;
     this.hasCheckedForUpdateNotes = true;
     const current = this.manifest.version;
     const previous = this.settings.lastSeenVersion;
@@ -7027,8 +6913,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       } else {
         leaf = workspace.getLeftLeaf(false);
       }
-      if (!leaf)
-        return;
+      if (!leaf) return;
       await leaf.setViewState({ type: VIEW_TYPE_NOTEFLARE, active: true });
     }
     void workspace.revealLeaf(leaf);
@@ -7036,15 +6921,13 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
   refreshView() {
     this.app.workspace.getLeavesOfType(VIEW_TYPE_NOTEFLARE).forEach((leaf) => {
       const view = leaf.view;
-      if (view instanceof NoteFlareView)
-        view.refresh();
+      if (view instanceof NoteFlareView) view.refresh();
     });
   }
   async doBackup(background = false) {
     var _a;
     if (this.backupInProgress) {
-      if (!background)
-        new import_obsidian28.Notice("A backup is already running.");
+      if (!background) new import_obsidian28.Notice("A backup is already running.");
       return;
     }
     if (!this.settings.setupComplete || !this.settings.enableBackup) {
@@ -7060,13 +6943,11 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     this.backupInProgress = true;
     this.settings.backup.lastBackupAttemptAt = (/* @__PURE__ */ new Date()).toISOString();
     const engine = new BackupEngine(this.app, this.settings, (message) => {
-      if (!background)
-        this.statusBar.setMessage(`NoteFlare: ${message}`);
+      if (!background) this.statusBar.setMessage(`NoteFlare: ${message}`);
     });
     try {
       const result = await engine.backup();
-      if (!result.success)
-        throw new Error((_a = result.errors[0]) != null ? _a : "Backup failed.");
+      if (!result.success) throw new Error((_a = result.errors[0]) != null ? _a : "Backup failed.");
       this.settings.backup.lastBackupAt = (/* @__PURE__ */ new Date()).toISOString();
       this.settings.backup.lastBackupError = "";
       await this.saveSettings();
@@ -7086,8 +6967,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       }
     } finally {
       this.backupInProgress = false;
-      if (!background)
-        this.updateStatusBar();
+      if (!background) this.updateStatusBar();
     }
   }
   async doPublish() {
@@ -7097,8 +6977,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       new import_obsidian28.Notice("Add a site before publishing.");
       return;
     }
-    if (this.publishInProgress[site.id])
-      return;
+    if (this.publishInProgress[site.id]) return;
     this.publishInProgress[site.id] = true;
     this.refreshView();
     const publisher = new Publisher(this.settings, site, this.app, (message) => {
@@ -7144,14 +7023,38 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       new import_obsidian28.Notice(message, 8e3);
     }
   }
+  getSecretStorage() {
+    var _a;
+    return (_a = this.app.secretStorage) != null ? _a : null;
+  }
   async loadSettings() {
     const loaded = await this.loadData();
     const { settings } = migrateSettings(loaded);
     this.settings = settings;
+    const secretStore = this.getSecretStorage();
+    if (secretStore) {
+      try {
+        const gh = secretStore.getSecret("noteflare-github-token");
+        if (gh) this.settings.githubToken = gh;
+        const cf = secretStore.getSecret("noteflare-cloudflare-token");
+        if (cf) this.settings.cloudflareToken = cf;
+      } catch (e) {
+        console.warn("NoteFlare: could not read from secretStorage:", e);
+      }
+    }
   }
   async saveSettings() {
     const { githubToken, cloudflareToken, ...rest } = this.settings;
     const persisted = { ...rest };
+    const secretStore = this.getSecretStorage();
+    if (secretStore) {
+      try {
+        secretStore.setSecret("noteflare-github-token", githubToken || "");
+        secretStore.setSecret("noteflare-cloudflare-token", cloudflareToken || "");
+      } catch (e) {
+        console.warn("NoteFlare: could not save to secretStorage:", e);
+      }
+    }
     if (isSecureStorageAvailable()) {
       persisted.githubTokenEnc = githubToken ? encryptSecret(githubToken) : "";
       persisted.cloudflareTokenEnc = cloudflareToken ? encryptSecret(cloudflareToken) : "";
@@ -7171,8 +7074,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     this.refreshView();
   }
   updateStatusBar() {
-    if (!this.statusBar)
-      return;
+    if (!this.statusBar) return;
     const site = this.getActiveSite();
     if (!this.settings.setupComplete || !site) {
       this.statusBar.setIdle();
@@ -7185,8 +7087,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     this.statusBar.setUnpublished();
   }
   updateRibbonIcon() {
-    if (!this.ribbonEl)
-      return;
+    if (!this.ribbonEl) return;
     const live = this.isActiveLive();
     (0, import_obsidian28.setIcon)(this.ribbonEl, live ? "cloud-check" : "cloud-upload");
     this.ribbonEl.setAttribute(
@@ -7340,8 +7241,7 @@ function migrateSettings(loaded) {
     sites: [],
     backup: { ...DEFAULT_BACKUP_SETTINGS }
   };
-  if (!loaded)
-    return { settings };
+  if (!loaded) return { settings };
   const str = (v) => typeof v === "string" ? v : "";
   settings.githubOwner = str(loaded.githubOwner);
   settings.cloudflareAccount = str(loaded.cloudflareAccount);
@@ -7384,6 +7284,7 @@ function migrateSettings(loaded) {
         hostingProvider = legacyTarget === "cloudflare" ? "cloudflare" : "github-pages";
       }
       const { deployTarget: _dt, ...rest } = s;
+      void _dt;
       return createSiteProfile({
         ...rest,
         publishScope: publishScope || "vault",
