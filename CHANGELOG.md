@@ -2,6 +2,25 @@
 
 All notable changes to NoteFlare are documented here.
 
+## [1.2.2] - 2026-09-02
+
+### Fixes
+- Fixed Setup Wizard not starting on Obsidian 1.13.0+ (resolves #5). Removed conflicting declarative settings definition override so Obsidian 1.13+ properly executes the imperative `display()` method.
+- Fixed secure token persistence across app restarts by integrating Obsidian's native `secretStorage` API with graceful fallback.
+
+### Improvements
+- Added `NoteFlare: Open setup wizard` command to the Obsidian Command Palette (`Ctrl/Cmd+P`).
+- Setup Wizard now launches automatically on initial install/activation if setup is not yet completed.
+- Updated README branding to use the official product logo SVG (`public/logo.svg`).
+
+---
+
+**How to Update:** Install from Obsidian Community Plugins.
+
+No breaking changes.
+
+---
+
 ## [1.2.1] - 2026-08-17
 
 ### Security & Compliance

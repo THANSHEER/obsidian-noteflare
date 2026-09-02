@@ -1,13 +1,15 @@
 {
   "name": "obsidian-noteflare",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Publish your Obsidian vault as a free website — one click.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "test": "jest",
-    "check": "tsc --noEmit --noUnusedLocals --noUnusedParameters && jest"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "check": "tsc --noEmit --noUnusedLocals --noUnusedParameters && npm run lint && jest"
   },
   "dependencies": {
     "micromatch": "^4.0.7"
@@ -16,7 +18,12 @@
     "@types/jest": "^30.0.0",
     "@types/micromatch": "^4.0.0",
     "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
     "esbuild": "^0.20.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.4.1",
+    "globals": "^17.11.0",
     "jest": "^30.4.2",
     "obsidian": "latest",
     "ts-jest": "^29.4.11",

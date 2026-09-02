@@ -17,14 +17,6 @@ export class NoteFlareSettingsTab extends PluginSettingTab {
   public isCloudflareConnectFlowOpen = false;
   public hasInitializedWizard = false;
 
-  getSettingDefinitions() {
-    return [
-      { id: 'publish', name: 'Publish', description: 'Configure publishing to Cloudflare and GitHub Pages' },
-      { id: 'backup', name: 'Automated Backup', description: 'Configure automatic private repository backups' },
-      { id: 'connections', name: 'Connections', description: 'Manage connected GitHub and Cloudflare accounts' },
-      { id: 'feedback', name: 'Feedback', description: 'Send feedback or request a feature' },
-    ];
-  }
 
   // Pending config across wizard steps
   public pendingName = '';

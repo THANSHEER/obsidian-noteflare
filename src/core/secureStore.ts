@@ -19,7 +19,7 @@ function resolveSafeStorage(): SafeStorage | null {
     // Newer Electron exposes `safeStorage` directly; older versions only via the
     // deprecated `remote` module — try both, fall back to null if neither.
     // Obsidian plugin execution environment provides require('electron').
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-call -- required to access electron safeStorage in Obsidian
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- required to access electron safeStorage in Obsidian
     const electron = require('electron') as unknown as {
       safeStorage?: SafeStorage;
       remote?: { safeStorage?: SafeStorage };
@@ -47,7 +47,6 @@ export function encryptSecret(plain: string): string {
   if (!isSecureStorageAvailable()) {
     throw new Error('Secure storage is unavailable on this system.');
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- SafeStorage typings are incomplete
   return safeStorage!.encryptString(plain).toString('base64');
 }
 
@@ -56,7 +55,6 @@ export function decryptSecret(b64: string): string {
   if (!b64) return '';
   if (!isSecureStorageAvailable()) return '';
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access -- Buffer typings may be missing in Obsidian context
     return safeStorage!.decryptString(Buffer.from(b64, 'base64'));
   } catch {
     return '';

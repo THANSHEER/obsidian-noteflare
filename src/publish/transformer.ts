@@ -41,7 +41,6 @@ export class Transformer {
     delete data.draft;
 
     const keys = Object.keys(data);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Obsidian stringifyYaml typings may be incomplete
     const yaml = keys.length ? stringifyYaml(data).trimEnd() : '';
     const block = yaml ? `---\n${yaml}\n---` : `---\n---`;
     const trailing = m[2] ? '\n' : '';

@@ -5938,14 +5938,6 @@ var NoteFlareSettingsTab = class extends import_obsidian24.PluginSettingTab {
     this.plugin = plugin;
     this.wizardStep = this.getInitialWizardStep();
   }
-  getSettingDefinitions() {
-    return [
-      { id: "publish", name: "Publish", description: "Configure publishing to Cloudflare and GitHub Pages" },
-      { id: "backup", name: "Automated Backup", description: "Configure automatic private repository backups" },
-      { id: "connections", name: "Connections", description: "Manage connected GitHub and Cloudflare accounts" },
-      { id: "feedback", name: "Feedback", description: "Send feedback or request a feature" }
-    ];
-  }
   getInitialWizardStep() {
     const s = this.plugin.settings;
     if (s.githubToken && s.githubOwner)
@@ -6926,7 +6918,7 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
         );
       }
     }
-    if (!isSecureStorageAvailable()) {
+    if (!this.getSecretStorage() && !isSecureStorageAvailable()) {
       new import_obsidian28.Notice(
         "NoteFlare: secure token storage is unavailable on this system. Your tokens will not be saved between sessions \u2014 you may need to re-enter them.",
         1e4
@@ -6942,6 +6934,11 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       () => void this.activateView()
     );
     this.updateRibbonIcon();
+    this.addCommand({
+      id: "open-wizard",
+      name: "Open setup wizard",
+      callback: () => this.openSettingsTab()
+    });
     this.addCommand({
       id: "open-panel",
       name: "Open panel",
@@ -6966,6 +6963,9 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
     new BackupScheduler(this).registerAutomation();
     this.app.workspace.onLayoutReady(() => {
       void this.checkForUpdateNotes();
+      if (!this.settings.setupComplete) {
+        this.openSettingsTab();
+      }
     });
   }
   onunload() {
@@ -7144,14 +7144,40 @@ var NoteFlarePlugin = class extends import_obsidian28.Plugin {
       new import_obsidian28.Notice(message, 8e3);
     }
   }
+  getSecretStorage() {
+    var _a;
+    return (_a = this.app.secretStorage) != null ? _a : null;
+  }
   async loadSettings() {
     const loaded = await this.loadData();
     const { settings } = migrateSettings(loaded);
     this.settings = settings;
+    const secretStore = this.getSecretStorage();
+    if (secretStore) {
+      try {
+        const gh = secretStore.getSecret("noteflare-github-token");
+        if (gh)
+          this.settings.githubToken = gh;
+        const cf = secretStore.getSecret("noteflare-cloudflare-token");
+        if (cf)
+          this.settings.cloudflareToken = cf;
+      } catch (e) {
+        console.warn("NoteFlare: could not read from secretStorage:", e);
+      }
+    }
   }
   async saveSettings() {
     const { githubToken, cloudflareToken, ...rest } = this.settings;
     const persisted = { ...rest };
+    const secretStore = this.getSecretStorage();
+    if (secretStore) {
+      try {
+        secretStore.setSecret("noteflare-github-token", githubToken || "");
+        secretStore.setSecret("noteflare-cloudflare-token", cloudflareToken || "");
+      } catch (e) {
+        console.warn("NoteFlare: could not save to secretStorage:", e);
+      }
+    }
     if (isSecureStorageAvailable()) {
       persisted.githubTokenEnc = githubToken ? encryptSecret(githubToken) : "";
       persisted.cloudflareTokenEnc = cloudflareToken ? encryptSecret(cloudflareToken) : "";
