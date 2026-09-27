@@ -12,7 +12,7 @@
   [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-blue.svg?style=for-the-badge)](https://github.com/THANSHEER/obsidian-noteflare/blob/main/LICENSE)
   [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/P0R02009G7)
 
-  [Overview](#overview) • [Features](#key-features) • [Installation](#installation) • [Getting Started](#getting-started) • [Support](#support) • [Contributing](#contributing)
+  [Overview](#overview) • [Demos](#demos) • [Step-by-Step Publishing Guide](#step-by-step-publishing-guide) • [Key Features](#key-features) • [Installation](#installation) • [Support](#support)
 
 </div>
 
@@ -20,123 +20,99 @@
 
 ## Overview
 
-**NoteFlare** is a powerful desktop plugin for [Obsidian](https://obsidian.md/) that allows you to seamlessly publish and backup your digital garden without touching a terminal, writing scripts, or managing backend services. 
+**NoteFlare** is a desktop plugin for [Obsidian](https://obsidian.md/) that lets you publish and backup your notes directly from Obsidian. No terminal, no manual Git commands, no complex server management required.
 
-With a few clicks, you can turn your vault into a stunning, fully-functional website, or create automated private backups of your knowledge base.
+With just a few clicks, convert your entire vault (or selected folders/notes) into a fast, public website hosted on **Cloudflare Pages**, or set up automated private backups.
 
-### 🎬 Demo: Introduction & Overview
+---
+
+## Demos
+
+### 🎬 Introduction & Setup
 <div align="center">
-  <img src="public/assets/demo-intro.webp" alt="NoteFlare Introduction Demo" width="100%" style="border-radius: 8px;" />
+  <video src="public/assets/demo-intro.mp4" controls autoplay loop muted playsinline width="100%" style="border-radius: 8px;"></video>
 </div>
 
-### 🎬 Demo: Publishing Your Notes
+### 🎬 Publishing Your Notes
 <div align="center">
-  <img src="public/assets/demo-publish.webp" alt="NoteFlare Publish Demo" width="100%" style="border-radius: 8px;" />
+  <video src="public/assets/demo-publish.mp4" controls autoplay loop muted playsinline width="100%" style="border-radius: 8px;"></video>
 </div>
+
+---
+
+## Step-by-Step Publishing Guide
+
+Publishing your digital garden with NoteFlare is straightforward. Here is how to publish your site from scratch:
+
+### Step 1: Install & Enable NoteFlare
+1. Open Obsidian **Settings** (`Cmd/Ctrl + ,`).
+2. Go to **Community plugins** → Turn off **Restricted Mode**.
+3. Click **Browse**, search for **NoteFlare**, then click **Install** and **Enable**.
+
+### Step 2: Complete the Setup Wizard
+1. Open **Settings** > **NoteFlare** (or press `Cmd/Ctrl + P` and search `NoteFlare: Open setup wizard`).
+2. **Connect Accounts:**
+   - **GitHub Personal Access Token:** Click the link in the wizard to generate a fine-grained or classic GitHub token with repository permissions.
+   - **Cloudflare Account ID & API Token:** Obtain your Account ID and Pages API token from your Cloudflare dashboard.
+3. Save your tokens securely into system storage.
+
+### Step 3: Configure Your Site
+1. Select **Publish Site** mode in the wizard.
+2. Enter your **Site Name** (e.g., `my-digital-garden`).
+3. Choose your **Scope**:
+   - **Whole Vault**: Publish all notes.
+   - **Folder**: Publish only notes inside a selected folder (e.g., `Published/`).
+   - **Selected File**: Publish a specific note.
+4. Click **Create & Launch Site**.
+
+### Step 4: Publish & View Your Live Site
+1. Click the **NoteFlare** icon in the Obsidian ribbon or sidebar panel.
+2. Click **Publish Now**.
+3. NoteFlare processes your Markdown, resolves `[[wikilinks]]` & images, and deploys to Cloudflare Pages.
+4. Once completed, your live URL (e.g., `https://my-digital-garden.pages.dev`) will appear in the status panel. Click to view your site!
+
+### Step 5: Updating Your Site
+- Whenever you make edits in Obsidian, open the NoteFlare panel and click **Publish Now** to push instant updates.
+- Enable **Automatic Background Publish** if you want edits synced automatically.
 
 ---
 
 ## Key Features
 
-### One-Click Publishing
-Instantly turn your vault, a specific folder, or a single note into a beautiful, free website. NoteFlare automatically structures your content, applies metadata, and handles the deployment pipeline.
+### 🚀 One-Click Publishing
+Turn notes into a public website instantly. NoteFlare structures Markdown, resolves Obsidian `[[wikilinks]]`, tags, and attachments automatically.
 
-### Cloudflare Pages Hosting
-Your site is built and served by **Cloudflare Pages** — lightning-fast global CDN with automated, zero-config build triggers. NoteFlare pushes your content to a private GitHub repository, and Cloudflare Pages automatically picks it up, runs the [mdgarden](https://www.npmjs.com/package/mdgarden) build, and deploys your site. No terminal, no CI config needed.
+### ⚡ Cloudflare Pages Hosting
+Built and served on Cloudflare Pages using [mdgarden](https://www.npmjs.com/package/mdgarden) static site generator for global CDN speed.
 
-### Private Local-Authoritative Backup
-Never lose a note again. NoteFlare provides a strict one-way mirror from your local vault to a private GitHub repository. Set it to sync automatically after edits, or on a recurring schedule.
+### 🔒 Private Local-Authoritative Backup
+Sync your vault root to a private GitHub repository on a schedule or automatically after edits.
 
-### Multi-Site Management
-Manage multiple distinct digital gardens from a single vault. Each site runs in complete isolation with its own repository, domain, and publish scope.
+### 🌐 Multi-Site Support
+Publish multiple separate websites from one vault with independent scopes and domains.
 
-### Enterprise-Grade Security
-Your GitHub and Cloudflare API tokens are never stored in plain text. NoteFlare leverages your Operating System's native encrypted keychain to ensure your credentials are safe.
-
-**Sharing Settings Across Vaults:** Because Obsidian plugins store settings per-vault, a new vault won't automatically have your API tokens. However, NoteFlare makes it easy to reuse them securely! Simply copy the `data.json` file from your first vault (`.obsidian/plugins/obsidian-noteflare/data.json`) and paste it into the same folder in your second vault. 
-
-As long as you are on the **same computer**, this works perfectly. The second vault will securely load the encrypted tokens, unlock them using your computer's System Keychain, and log you in immediately!
+### 🛡️ Native Keychain Security
+Your GitHub and Cloudflare tokens are encrypted using your Operating System's native Keychain.
 
 ---
 
 ## Installation
 
-You can install NoteFlare directly from the Obsidian Community Plugins store:
-
-1. Open Obsidian and navigate to **Settings** > **Community plugins**.
-2. Turn off **Restricted Mode** if it is enabled.
-3. Click **Browse** and search for **"NoteFlare"**.
-4. Click **Install**, and then **Enable**.
+### Community Plugin Store (Recommended)
+1. In Obsidian, go to **Settings** > **Community plugins**.
+2. Click **Browse** and search for **NoteFlare**.
+3. Click **Install**, then **Enable**.
 
 ### Manual Installation
-If you prefer to install manually from the [GitHub Repository](https://github.com/THANSHEER/obsidian-noteflare):
-1. Download the `main.js`, `styles.css`, and `manifest.json` from the [Latest Release](https://github.com/THANSHEER/obsidian-noteflare/releases).
-2. Place these files in a new folder located at: `[YourVault]/.obsidian/plugins/obsidian-noteflare/`.
-3. Reload Obsidian and enable the plugin.
-
----
-
-## Getting Started
-
-NoteFlare features a beautiful Guided Setup Wizard that gets you online in minutes.
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/THANSHEER/obsidian-noteflare/main/assets/obsidian-noteflare-onboarding.webp" alt="Onboarding Demo" style="max-width: 100%; border-radius: 8px;" />
-</div>
-
-1. **Connect Accounts:** Open the NoteFlare settings and enter your GitHub token (and Cloudflare token, if you prefer Cloudflare hosting). The wizard will guide you to the exact links you need to generate these.
-2. **Choose Your Path:** 
-   - Select **Publish** to set up a public website.
-   - Select **Backup** to establish a secure remote mirror of your vault.
-3. **Configure & Launch:** Choose what folder to publish or backup. Once complete, manage your deployments directly from the sleek NoteFlare sidebar panel!
-
-### Advanced Settings
-Tailor your site structure, backup frequency, and deployment hooks directly inside NoteFlare's advanced configuration panel.
-
----
-
-## Architecture under the hood
-
-NoteFlare utilizes the powerful **mdgarden** open-source static site generator as its build engine. When you hit publish, NoteFlare seamlessly prepares your Markdown, resolves local Obsidian `[[wikilinks]]` and attachments, and packages a build manifest. This is securely pushed to GitHub where your chosen CI/CD pipeline takes over. 
+1. Download `main.js`, `styles.css`, and `manifest.json` from [Latest Releases](https://github.com/THANSHEER/obsidian-noteflare/releases).
+2. Copy them to `.obsidian/plugins/obsidian-noteflare/` inside your vault.
+3. Reload Obsidian and enable the plugin under Community plugins.
 
 ---
 
 ## Support
 
-If NoteFlare helps your workflow, please consider supporting the project:
-
-- ⭐ **[Star this repository on GitHub](https://github.com/THANSHEER/obsidian-noteflare)** — every star helps more Obsidian users discover NoteFlare!
-- ☕ **[Support development on Ko-fi](https://ko-fi.com/P0R02009G7)**
+If NoteFlare helps your workflow:
+- ⭐ **[Star on GitHub](https://github.com/THANSHEER/obsidian-noteflare)**
+- ☕ **[Support on Ko-fi](https://ko-fi.com/P0R02009G7)**
 - 💖 **[Sponsor on GitHub](https://github.com/sponsors/THANSHEER)**
-
-<div align="center">
-
-[![GitHub stars](https://img.shields.io/github/stars/THANSHEER/obsidian-noteflare?style=for-the-badge&logo=github&color=yellow)](https://github.com/THANSHEER/obsidian-noteflare/stargazers)
-&nbsp;
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/P0R02009G7)
-
-</div>
-
----
-
-## Contributing
-
-We love community contributions! Whether you're squashing bugs, improving documentation, or adding new features, your help is welcome.
-
-Please refer to our [Contributing Guide](CONTRIBUTING.md) to learn how to:
-- Set up your local development environment
-- Run local builds and type-checking
-- Format your Pull Requests
-
-### Reporting Issues
-
-If you encounter any bugs, unexpected behavior, or have feature requests, please report them on our [GitHub Issues](https://github.com/THANSHEER/obsidian-noteflare/issues) page. Your feedback is essential for making NoteFlare better!
-
-<div align="center">
-  <a href="https://github.com/THANSHEER/obsidian-noteflare">
-    <img src="https://img.shields.io/badge/View_Repository-181717?style=for-the-badge&logo=github&logoColor=white" alt="View on GitHub"/>
-  </a>
-</div>
-
----
-

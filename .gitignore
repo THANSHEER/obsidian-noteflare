@@ -14,13 +14,14 @@ data.json.bak
 *.swp
 *.swo
 
-# Raw video source files (use public/assets/*.webp instead)
+# Raw video source files (use public/assets/* instead)
 *.mp4
 *.mov
 *.mkv
 *.avi
-# But track compressed WebP demos
+# But track compressed demo assets
 !public/assets/*.webp
+!public/assets/*.mp4
 
 # Testing and Coverage
 coverage/
