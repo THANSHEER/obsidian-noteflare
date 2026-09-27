@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/logo.svg" alt="NoteFlare Logo" width="140" />
+  <img src="public/logo/logo.svg" alt="NoteFlare Logo" width="140" />
 
   # NoteFlare for Obsidian
 
@@ -24,9 +24,14 @@
 
 With a few clicks, you can turn your vault into a stunning, fully-functional website, or create automated private backups of your knowledge base.
 
-### See it in action: Publishing Notes
+### 🎬 Demo: Introduction & Overview
 <div align="center">
-  <img src="https://raw.githubusercontent.com/THANSHEER/obsidian-noteflare/main/assets/obsidian-noteflare-publish.webp" alt="Publish Notes Demo" style="max-width: 100%; border-radius: 8px;" />
+  <img src="public/assets/demo-intro.webp" alt="NoteFlare Introduction Demo" width="100%" style="border-radius: 8px;" />
+</div>
+
+### 🎬 Demo: Publishing Your Notes
+<div align="center">
+  <img src="public/assets/demo-publish.webp" alt="NoteFlare Publish Demo" width="100%" style="border-radius: 8px;" />
 </div>
 
 ---
@@ -86,11 +91,7 @@ NoteFlare features a beautiful Guided Setup Wizard that gets you online in minut
 3. **Configure & Launch:** Choose what folder to publish or backup. Once complete, manage your deployments directly from the sleek NoteFlare sidebar panel!
 
 ### Advanced Settings
-Tailor your site structure, backup frequency, and deployment hooks directly inside NoteFlare's advanced configuration panel:
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/THANSHEER/obsidian-noteflare/main/assets/obsidian-noteflare-advance-settings.webp" alt="Advanced Settings Demo" style="max-width: 100%; border-radius: 8px;" />
-</div>
+Tailor your site structure, backup frequency, and deployment hooks directly inside NoteFlare's advanced configuration panel.
 
 ---
 
