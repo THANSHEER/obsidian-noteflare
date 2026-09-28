@@ -5,7 +5,6 @@ import { CloudflareApi } from '../../../api/cloudflareApi';
 import { createErrorEl, showError, hideError, busy, idle } from '../settingsHelpers';
 import { renderRestoreFromRegistry } from './restoreSection';
 
-const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
 const CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
 
 export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElement): void {
@@ -19,7 +18,6 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
     // GitHub row
     const ghSetting = new Setting(el).setName('GitHub');
     if (s.githubToken && s.githubOwner) {
-      // Use the status dot + inline description
       const descEl = ghSetting.descEl;
       descEl.addClass('nf-conn-desc');
       const dot = descEl.createSpan({ cls: 'nf-status-dot connected' });
@@ -72,13 +70,6 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
         : 'Connected';
       descEl.createSpan({ text: accountHint });
 
-      // Reconnect is needed when the Cloudflare ↔ GitHub App authorization
-      // is revoked (e.g. after deleting and recreating the repo).
-      cfSetting.addButton((b) => {
-        b.setButtonText('Reconnect to GitHub');
-        b.setTooltip('Open Cloudflare ↔ GitHub App authorization if your builds are disconnected');
-        b.onClick(() => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
-      });
       cfSetting.addButton((b) => {
         b.setButtonText('Disconnect');
         b.buttonEl.addClass('mod-warning');
@@ -117,39 +108,26 @@ export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl
 
     containerEl.createEl('p', {
       cls: 'setting-item-description',
-      text: 'Two quick one-time steps in your browser:',
+      text: 'Enter your Cloudflare API credentials below:',
     });
 
     const cfSection = containerEl.createDiv();
-    const repoSlug = `${s.githubOwner}/${s.masterRepository || 'noteflare-sites'}`;
-
-    new Setting(cfSection)
-      .setName('1. Create a Cloudflare API token')
-      .setDesc('Creates a token with Pages, Workers, and Account permissions pre-filled.')
-      .addButton((b) => {
-        b.setButtonText('Create Token ↗');
-        b.onClick(() => { window.open(CLOUDFLARE_TOKEN_URL, '_blank'); });
-      });
-
-    new Setting(cfSection)
-      .setName('2. Authorize Cloudflare on GitHub')
-      .setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${repoSlug}`)
-      .addButton((b) => {
-        b.setButtonText('Authorize ↗');
-        b.onClick(() => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
-      });
 
     let cfToken = '';
     let cfAccount = '';
 
-    new Setting(cfSection)
-      .setName('Cloudflare API token')
-      .setDesc('Stored encrypted in your OS keychain.')
-      .addText((t) => {
-        t.setPlaceholder('Paste API token…');
-        t.inputEl.type = 'password';
-        t.onChange((v) => { cfToken = v.trim(); });
-      });
+    const cfTokenSetting = new Setting(cfSection).setName('Cloudflare API token');
+    cfTokenSetting.descEl.appendText('Pre-filled permissions for Pages & Workers. ');
+    cfTokenSetting.descEl.createEl('a', {
+      text: 'Create token ↗',
+      href: CLOUDFLARE_TOKEN_URL,
+      attr: { target: '_blank', rel: 'noopener' },
+    });
+    cfTokenSetting.addText((t) => {
+      t.setPlaceholder('Paste API token…');
+      t.inputEl.type = 'password';
+      t.onChange((v) => { cfToken = v.trim(); });
+    });
 
     new Setting(cfSection)
       .setName('Cloudflare account ID')
@@ -194,4 +172,4 @@ export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl
           })();
         });
       });
-  }
+}

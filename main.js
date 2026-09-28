@@ -4515,7 +4515,6 @@ var PathSuggestModal = class extends import_obsidian8.FuzzySuggestModal {
 };
 
 // src/ui/settings/wizard/stepHosting.ts
-var CLOUDFLARE_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
 var CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
 function renderStepHosting(tab, el) {
   const heading = new import_obsidian9.Setting(el);
@@ -4523,7 +4522,7 @@ function renderStepHosting(tab, el) {
   heading.setHeading();
   el.createEl("p", {
     cls: "setting-item-description",
-    text: "NoteFlare publishes to Cloudflare Pages \u2014 a free global CDN with instant deploy controls. You'll need a free Cloudflare account."
+    text: "NoteFlare publishes to Cloudflare Pages \u2014 a free global CDN with instant deploy controls."
   });
   let siteName = tab.pendingName || "my-notes";
   new import_obsidian9.Setting(el).setName("Site name").setDesc("Used for your repository and site address. Lowercase letters, numbers, and dashes.").addText((text) => {
@@ -4539,7 +4538,6 @@ function renderStepHosting(tab, el) {
     text.setValue(masterRepo);
     text.onChange((v) => {
       masterRepo = v.trim();
-      updateCfAppHint();
     });
   });
   let scope = tab.pendingScope;
@@ -4592,28 +4590,14 @@ function renderStepHosting(tab, el) {
   renderPaths();
   let cfToken = tab.plugin.settings.cloudflareToken;
   let cfAccount = tab.plugin.settings.cloudflareAccount;
-  let cfAppHintEl = null;
-  const updateCfAppHint = () => {
-    if (cfAppHintEl) {
-      cfAppHintEl.setText(
-        `Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || "noteflare-sites"}`
-      );
-    }
-  };
-  new import_obsidian9.Setting(el).setName("1. Create a Cloudflare API token").setDesc("Creates a token with Pages, Workers, and Account permissions pre-filled.").addButton((b) => {
-    b.setButtonText("Create Token \u2197");
-    b.onClick(() => {
-      window.open(CLOUDFLARE_TOKEN_URL, "_blank");
-    });
+  const cfTokenSetting = new import_obsidian9.Setting(el).setName("Cloudflare API token");
+  cfTokenSetting.descEl.appendText("Pre-filled permissions for Pages & Workers. ");
+  cfTokenSetting.descEl.createEl("a", {
+    text: "Create token \u2197",
+    href: CLOUDFLARE_TOKEN_URL,
+    attr: { target: "_blank", rel: "noopener" }
   });
-  const cfAppSetting = new import_obsidian9.Setting(el).setName("2. Authorize Cloudflare on GitHub").setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || "noteflare-sites"}`).addButton((b) => {
-    b.setButtonText("Authorize \u2197");
-    b.onClick(() => {
-      window.open(CLOUDFLARE_APP_URL, "_blank");
-    });
-  });
-  cfAppHintEl = cfAppSetting.descEl;
-  new import_obsidian9.Setting(el).setName("Cloudflare API token").setDesc("Stored encrypted in your OS keychain.").addText((t) => {
+  cfTokenSetting.addText((t) => {
     t.setPlaceholder("Paste API token\u2026");
     t.inputEl.type = "password";
     t.setValue(cfToken);
@@ -4948,7 +4932,6 @@ async function renderRestoreFromRegistry(tab, el) {
 }
 
 // src/ui/settings/manage/connectionsSection.ts
-var CLOUDFLARE_APP_URL2 = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
 var CLOUDFLARE_TOKEN_URL2 = buildCloudflareTokenUrl();
 function renderConnectionsSection(tab, el) {
   const s = tab.plugin.settings;
@@ -5007,13 +4990,6 @@ function renderConnectionsSection(tab, el) {
     const accountHint = s.cloudflareAccount ? `Connected \xB7 Account ${s.cloudflareAccount.slice(0, 8)}\u2026` : "Connected";
     descEl.createSpan({ text: accountHint });
     cfSetting.addButton((b) => {
-      b.setButtonText("Reconnect to GitHub");
-      b.setTooltip("Open Cloudflare \u2194 GitHub App authorization if your builds are disconnected");
-      b.onClick(() => {
-        window.open(CLOUDFLARE_APP_URL2, "_blank");
-      });
-    });
-    cfSetting.addButton((b) => {
       b.setButtonText("Disconnect");
       b.buttonEl.addClass("mod-warning");
       b.onClick(() => {
@@ -5047,25 +5023,19 @@ function openCloudflareConnectFlow(tab, containerEl) {
   heading.setHeading();
   containerEl.createEl("p", {
     cls: "setting-item-description",
-    text: "Two quick one-time steps in your browser:"
+    text: "Enter your Cloudflare API credentials below:"
   });
   const cfSection = containerEl.createDiv();
-  const repoSlug = `${s.githubOwner}/${s.masterRepository || "noteflare-sites"}`;
-  new import_obsidian13.Setting(cfSection).setName("1. Create a Cloudflare API token").setDesc("Creates a token with Pages, Workers, and Account permissions pre-filled.").addButton((b) => {
-    b.setButtonText("Create Token \u2197");
-    b.onClick(() => {
-      window.open(CLOUDFLARE_TOKEN_URL2, "_blank");
-    });
-  });
-  new import_obsidian13.Setting(cfSection).setName("2. Authorize Cloudflare on GitHub").setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${repoSlug}`).addButton((b) => {
-    b.setButtonText("Authorize \u2197");
-    b.onClick(() => {
-      window.open(CLOUDFLARE_APP_URL2, "_blank");
-    });
-  });
   let cfToken = "";
   let cfAccount = "";
-  new import_obsidian13.Setting(cfSection).setName("Cloudflare API token").setDesc("Stored encrypted in your OS keychain.").addText((t) => {
+  const cfTokenSetting = new import_obsidian13.Setting(cfSection).setName("Cloudflare API token");
+  cfTokenSetting.descEl.appendText("Pre-filled permissions for Pages & Workers. ");
+  cfTokenSetting.descEl.createEl("a", {
+    text: "Create token \u2197",
+    href: CLOUDFLARE_TOKEN_URL2,
+    attr: { target: "_blank", rel: "noopener" }
+  });
+  cfTokenSetting.addText((t) => {
     t.setPlaceholder("Paste API token\u2026");
     t.inputEl.type = "password";
     t.onChange((v) => {
@@ -6546,7 +6516,7 @@ var StatusBar = class {
 // src/ui/noteflareView.ts
 var import_obsidian28 = require("obsidian");
 var VIEW_TYPE_NOTEFLARE = "noteflare-panel";
-var CLOUDFLARE_APP_URL3 = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
+var CLOUDFLARE_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
 function relativeTime(iso) {
   if (!iso) return "";
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -6646,7 +6616,7 @@ var NoteFlareView = class extends import_obsidian28.ItemView {
       });
       const reconnectBtn = warnBanner.createEl("button", { text: "Re-authorize Cloudflare \u2197", cls: "mod-cta" });
       reconnectBtn.addEventListener("click", () => {
-        window.open(CLOUDFLARE_APP_URL3, "_blank");
+        window.open(CLOUDFLARE_APP_URL, "_blank");
       });
     }
     this.renderPublishScope(root, site);

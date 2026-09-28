@@ -5,7 +5,6 @@ import { buildCloudflareTokenUrl, slugify, provisionSite } from '../modals/helpe
 import { createErrorEl, showError, hideError, busy, idle } from '../settingsHelpers';
 import { PathSuggestModal } from '../modals/pathSuggestModal';
 
-const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
 const CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
 
 export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): void {
@@ -15,7 +14,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
 
   el.createEl('p', {
     cls: 'setting-item-description',
-    text: "NoteFlare publishes to Cloudflare Pages — a free global CDN with instant deploy controls. You'll need a free Cloudflare account.",
+    text: "NoteFlare publishes to Cloudflare Pages — a free global CDN with instant deploy controls.",
   });
 
   // ── Site name ─────────────────────────────────────────────────────────────
@@ -41,7 +40,6 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
       text.setValue(masterRepo);
       text.onChange((v) => {
         masterRepo = v.trim();
-        updateCfAppHint();
       });
     });
 
@@ -94,45 +92,23 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
   };
   renderPaths();
 
-  // ── Cloudflare credentials ────────────────────────────────────────────────
+  // ── Cloudflare credentials (combined link + token input, matching GitHub token pattern) ──
   let cfToken = tab.plugin.settings.cloudflareToken;
   let cfAccount = tab.plugin.settings.cloudflareAccount;
 
-  let cfAppHintEl: HTMLElement | null = null;
-  const updateCfAppHint = () => {
-    if (cfAppHintEl) {
-      cfAppHintEl.setText(
-        `Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || 'noteflare-sites'}`,
-      );
-    }
-  };
-
-  new Setting(el)
-    .setName('1. Create a Cloudflare API token')
-    .setDesc('Creates a token with Pages, Workers, and Account permissions pre-filled.')
-    .addButton((b) => {
-      b.setButtonText('Create Token ↗');
-      b.onClick(() => { window.open(CLOUDFLARE_TOKEN_URL, '_blank'); });
-    });
-
-  const cfAppSetting = new Setting(el)
-    .setName('2. Authorize Cloudflare on GitHub')
-    .setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || 'noteflare-sites'}`)
-    .addButton((b) => {
-      b.setButtonText('Authorize ↗');
-      b.onClick(() => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
-    });
-  cfAppHintEl = cfAppSetting.descEl;
-
-  new Setting(el)
-    .setName('Cloudflare API token')
-    .setDesc('Stored encrypted in your OS keychain.')
-    .addText((t) => {
-      t.setPlaceholder('Paste API token…');
-      t.inputEl.type = 'password';
-      t.setValue(cfToken);
-      t.onChange((v) => { cfToken = v.trim(); });
-    });
+  const cfTokenSetting = new Setting(el).setName('Cloudflare API token');
+  cfTokenSetting.descEl.appendText('Pre-filled permissions for Pages & Workers. ');
+  cfTokenSetting.descEl.createEl('a', {
+    text: 'Create token ↗',
+    href: CLOUDFLARE_TOKEN_URL,
+    attr: { target: '_blank', rel: 'noopener' },
+  });
+  cfTokenSetting.addText((t) => {
+    t.setPlaceholder('Paste API token…');
+    t.inputEl.type = 'password';
+    t.setValue(cfToken);
+    t.onChange((v) => { cfToken = v.trim(); });
+  });
 
   new Setting(el)
     .setName('Cloudflare account ID')
