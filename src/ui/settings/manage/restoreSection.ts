@@ -24,7 +24,7 @@ export async function renderRestoreFromRegistry(tab: NoteFlareSettingsTab, el: H
 
     for (const entry of orphaned) {
       const label =
-        `${entry.name || entry.masterRepository} · ${entry.hostingProvider === 'cloudflare' ? 'Cloudflare Pages' : 'GitHub Pages'}` +
+        `${entry.name || entry.masterRepository} · ${entry.hostingProvider === 'cloud-worker' ? 'Cloud Worker' : entry.hostingProvider === 'cloudflare' ? 'Cloudflare Pages' : 'Static Host'}` +
         (entry.siteUrl ? ` · ${entry.siteUrl}` : '');
       restoreSection.createEl('p', { cls: 'setting-item-description', text: `• ${label}` });
     }

@@ -29,13 +29,14 @@ export interface SiteProfile {
   lastPublishFailed: boolean;
   /** Human-readable error from the last failed publish. Empty on success. */
   lastPublishError: string;
+  /** Custom Cloud Worker API endpoint (optional override). */
+  workerEndpoint?: string;
   /**
    * Hosting provider for this site.
-   * 'github-pages' = GitHub Actions → GitHub Pages (free, no extra account).
-   * 'cloudflare'   = Cloudflare Pages (global CDN, instant deploy toggles).
-   * 'netlify'/'vercel' = reserved for future providers.
+   * 'cloud-worker' = Cloud Worker API engine (zero manual CF dashboard setup).
+   * 'cloudflare'   = Direct Cloudflare integration.
    */
-  hostingProvider: 'github-pages' | 'cloudflare' | 'netlify' | 'vercel';
+  hostingProvider: 'cloud-worker' | 'cloudflare';
 }
 
 /**
@@ -108,6 +109,11 @@ export interface NoteFlareSettings {
    * Empty on first install; compared to `manifest.version` on load.
    */
   lastSeenVersion: string;
+  /**
+   * Whether to automatically show the What's New / release notes modal on update.
+   * Defaults to true.
+   */
+  showWhatsNewOnUpdate?: boolean;
 }
 
 /**
@@ -148,3 +154,5 @@ export interface BackupResult {
   updated: number;
   errors: string[];
 }
+
+export type { GitHubRelease, GitHubReleaseAsset } from '../api/geekstashApi';

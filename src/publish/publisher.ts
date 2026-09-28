@@ -2,23 +2,25 @@ import { App } from 'obsidian';
 import { NoteFlareSettings, PublishResult, SiteProfile, UploadFile } from '../core/types';
 import { GitHubApi } from '../api/githubApi';
 import { CloudflareApi } from '../api/cloudflareApi';
+import { CloudWorkerApi, DEFAULT_WORKER_ENDPOINT } from '../api/cloudWorkerApi';
 import { FileCollector } from './fileCollector';
 import { Transformer } from './transformer';
 import { inspectFrontmatter } from './contentValidator';
-import { GITHUB_ACTIONS_WORKFLOW, MDGARDEN_VERSION, NODE_VERSION } from '../core/constants';
-
-const RECONNECT_HINT =
-  "If the build can't start, reconnect Cloudflare to GitHub: install/authorize the " +
-  '"Cloudflare Workers and Pages" GitHub App for this repo.';
-
+import { MDGARDEN_VERSION, NODE_VERSION } from '../core/constants';
 
 function textToBase64(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
   }
   return btoa(binary);
+}
+
+/** Empty result for early-return failure paths. */
+function failResult(error: string): PublishResult {
+  return { success: false, uploaded: 0, noteCount: 0, failed: 0, fixed: 0, errors: [error], issues: [] };
 }
 
 export class Publisher {
@@ -29,16 +31,141 @@ export class Publisher {
     private onProgress: (msg: string) => void,
   ) {}
 
-  /** Effective hosting provider for this site. */
   private get hostingProvider(): SiteProfile['hostingProvider'] {
-    return this.site.hostingProvider;
+    return this.site.hostingProvider || 'cloud-worker';
   }
 
   async publish(): Promise<PublishResult> {
     const repo = this.settings.masterRepository;
-    
-    // The branch Cloudflare/GH Actions builds and we commit to is the repo's
-    // own default (main). Re-resolve from GitHub in case it differs.
+
+    // ── Upfront validation ──
+    if (this.hostingProvider === 'cloudflare') {
+      if (!this.settings.githubToken || !this.settings.githubOwner) {
+        return failResult('GitHub account not connected. Open settings → Connections to reconnect.');
+      }
+      if (!repo) {
+        return failResult('No master repository configured. Run setup again or check settings.');
+      }
+      if (!this.settings.cloudflareToken) {
+        return failResult('Cloudflare token not set. Open settings → Connections to reconnect.');
+      }
+    }
+
+    const collector = new FileCollector(this.app, this.site);
+    const transformer = new Transformer();
+
+    const uploadFilesMap = new Map<string, UploadFile>();
+    const workerPayloadFiles: Array<{ path: string; content: string; isBase64?: boolean }> = [];
+    const issues: string[] = [];
+    let fixedCount = 0;
+
+    const rootDir = `sites/${this.site.id}`;
+
+    this.onProgress('Collecting files…');
+
+    const files = await collector.collect();
+    for (const file of files) {
+      let content: string;
+      let rawText = '';
+      let repoPath: string;
+
+      if (file.extension === 'md') {
+        rawText = await this.app.vault.read(file);
+        const check = inspectFrontmatter(rawText);
+        if (check.status === 'fixed') {
+          fixedCount++;
+          issues.push(`${file.path}: ${check.reason ?? 'frontmatter auto-fixed'}`);
+        }
+        const transformed = transformer.transform(rawText, file.path, file.basename);
+        content = textToBase64(transformed);
+        repoPath = `${rootDir}/content/${file.path}`;
+
+        workerPayloadFiles.push({
+          path: file.path,
+          content: transformed,
+          isBase64: false,
+        });
+      } else {
+        content = await collector.readAsBase64(file);
+        repoPath = `${rootDir}/content/attachments/${file.name}`;
+
+        workerPayloadFiles.push({
+          path: `attachments/${file.name}`,
+          content,
+          isBase64: true,
+        });
+      }
+
+      if (!uploadFilesMap.has(repoPath)) {
+        uploadFilesMap.set(repoPath, { path: repoPath, content });
+      }
+    }
+
+    // Direct Cloud Worker API deployment (Option A Engine)
+    if (this.hostingProvider === 'cloud-worker') {
+      this.onProgress('Sending files to Cloud Worker Build Engine…');
+      try {
+        const workerApi = new CloudWorkerApi(
+          this.settings.githubToken || this.settings.cloudflareToken || 'noteflare-token',
+          this.site.workerEndpoint || DEFAULT_WORKER_ENDPOINT,
+        );
+
+        const workerResult = await workerApi.publish({
+          siteId: this.site.id,
+          siteName: this.site.name,
+          authorName: this.site.authorName,
+          sidebarTitle: this.site.sidebarTitle,
+          siteDescription: this.site.siteDescription,
+          files: workerPayloadFiles,
+        });
+
+        if (workerResult.siteUrl) {
+          this.site.siteUrl = workerResult.siteUrl;
+        }
+        this.site.isPublished = true;
+        this.site.lastPublished = new Date().toISOString();
+        this.site.lastNoteCount = files.length;
+        this.site.lastPublishFailed = false;
+        this.site.lastPublishError = '';
+
+        // If GitHub master repository is configured, also sync files to GitHub as private backup store
+        if (this.settings.githubToken && this.settings.githubOwner && repo) {
+          try {
+            const probe = new GitHubApi(this.settings.githubToken, this.settings.githubOwner, repo);
+            const branch = await probe.getDefaultBranch();
+            const github = new GitHubApi(this.settings.githubToken, this.settings.githubOwner, repo, branch);
+            const uploadFiles = Array.from(uploadFilesMap.values());
+            await github.commitFiles(
+              uploadFiles,
+              `NoteFlare: backup publish ${uploadFiles.length} files`,
+              () => {},
+              () => {},
+              `${rootDir}/content/`,
+              { isPrivate: this.settings.masterRepositoryPrivate || false },
+            );
+          } catch (ghErr: unknown) {
+            console.warn('NoteFlare: optional GitHub repo sync skipped:', (ghErr as Error).message);
+          }
+        }
+
+        return {
+          success: true,
+          uploaded: workerPayloadFiles.length,
+          noteCount: files.length,
+          failed: 0,
+          fixed: fixedCount,
+          errors: [],
+          issues,
+        };
+      } catch (err: unknown) {
+        const errorMsg = (err as Error).message;
+        this.site.lastPublishFailed = true;
+        this.site.lastPublishError = errorMsg;
+        return failResult(errorMsg);
+      }
+    }
+
+    // Direct Cloudflare Pages API deployment
     let branch = this.site.githubBranch || 'main';
     try {
       const probe = new GitHubApi(
@@ -46,16 +173,13 @@ export class Publisher {
         this.settings.githubOwner,
         repo,
       );
-      // Side-effect: update stored branch and privacy from GitHub's actual values.
-      // These mutations are intentional — they self-heal stale stored data and
-      // persist via saveSettings() in main.ts regardless of publish outcome.
       branch = await probe.getDefaultBranch();
       this.site.githubBranch = branch;
 
       const isPrivate = await probe.isRepoPrivate();
       this.settings.masterRepositoryPrivate = isPrivate;
-    } catch {
-      // Keep the stored branch and privacy.
+    } catch (probeErr: unknown) {
+      console.warn('NoteFlare: branch/privacy probe failed:', (probeErr as Error).message);
     }
 
     const github = new GitHubApi(
@@ -64,47 +188,7 @@ export class Publisher {
       repo,
       branch,
     );
-    const collector = new FileCollector(this.app, this.site);
-    const transformer = new Transformer();
 
-    const uploadFilesMap = new Map<string, UploadFile>();
-    const issues: string[] = [];
-    let fixedCount = 0;
-
-    const rootDir = `sites/${this.site.id}`;
-    
-    this.onProgress('Collecting files…');
-
-    const files = await collector.collect();
-    for (const file of files) {
-      let content: string;
-      let repoPath: string;
-
-      if (file.extension === 'md') {
-        const raw = await this.app.vault.read(file);
-        // Preflight: catch + auto-repair frontmatter that would crash the build.
-        const check = inspectFrontmatter(raw);
-        if (check.status === 'fixed') {
-          fixedCount++;
-          issues.push(`${file.path}: ${check.reason ?? 'frontmatter auto-fixed'}`);
-        }
-        const transformed = transformer.transform(raw, file.path, file.basename);
-        content = textToBase64(transformed);
-        repoPath = `${rootDir}/content/${file.path}`;
-      } else {
-        content = await collector.readAsBase64(file);
-        repoPath = `${rootDir}/content/attachments/${file.name}`;
-      }
-
-      if (!uploadFilesMap.has(repoPath)) {
-        uploadFilesMap.set(repoPath, { path: repoPath, content });
-      }
-    }
-
-    // Repo-root files that drive the build (same for both deploy targets):
-    //  - package.json  — pulls in mdgarden, defines build script
-    //  - mdgarden.config.json — site theme + metadata
-    //  - .node-version — pins a modern Node for the build environment
     uploadFilesMap.set(`${rootDir}/package.json`, {
       path: `${rootDir}/package.json`,
       content: textToBase64(this.buildPackageJson()),
@@ -118,18 +202,7 @@ export class Publisher {
       content: textToBase64(`${NODE_VERSION}\n`),
     });
 
-    // For GitHub Actions / GitHub Pages: commit the deploy workflow so the
-    // build triggers on push. Without this file, no workflow runs and the
-    // site stays blank forever.
-    if (this.hostingProvider === 'github-pages') {
-      uploadFilesMap.set('.github/workflows/deploy.yml', {
-        path: '.github/workflows/deploy.yml',
-        content: textToBase64(GITHUB_ACTIONS_WORKFLOW),
-      });
-    }
-
     const uploadFiles = Array.from(uploadFilesMap.values());
-
     this.onProgress(`Uploading 0/${uploadFiles.length}...`);
 
     const result = await github.commitFiles(
@@ -137,25 +210,20 @@ export class Publisher {
       `NoteFlare: publish ${uploadFiles.length} files`,
       (done, total) => this.onProgress(`Uploading ${done}/${total}...`),
       (secsLeft) => this.onProgress(`Rate limited — ${secsLeft}s...`),
-      // Mirror content/ so notes removed or excluded from the vault disappear
-      // from the published site too.
       `${rootDir}/content/`,
-      { isPrivate: this.settings.masterRepositoryPrivate || false }
+      { isPrivate: this.settings.masterRepositoryPrivate || false },
     );
 
     result.fixed = fixedCount;
     result.issues = issues;
-    // noteCount = vault files only (notes + attachments), excluding build files like
-    // package.json, mdgarden.config.json, .node-version, and the GH Actions workflow.
     result.noteCount = files.length;
 
-    if (result.success && this.hostingProvider === 'cloudflare') {
+    if (result.success) {
       const cloudflare = new CloudflareApi(
         this.settings.cloudflareToken,
         this.settings.cloudflareAccount,
       );
 
-      // Enable Cloudflare deployment (handles both first publish and re-publish after unpublish)
       try {
         await cloudflare.enableDeployment(this.site.cloudflareProject);
       } catch (err: unknown) {
@@ -168,9 +236,8 @@ export class Publisher {
               this.settings.githubOwner,
               repo,
               branch,
-              rootDir
+              rootDir,
             );
-            // Project creation succeeds; deployment is automatically enabled by default.
           } catch (createErr: unknown) {
             result.errors.push(`Cloudflare recovery failed: ${(createErr as Error).message}`);
             result.success = false;
@@ -181,8 +248,6 @@ export class Publisher {
         }
       }
 
-      // Repair the Pages build settings every publish so a project created earlier
-      // with a bad build command or stale branch self-heals.
       if (result.success) {
         try {
           await cloudflare.configureBuild(
@@ -202,21 +267,18 @@ export class Publisher {
         try {
           await cloudflare.triggerDeployment(this.site.cloudflareProject, branch);
         } catch (err: unknown) {
-          result.errors.push(`Cloudflare build: ${(err as Error).message}. ${RECONNECT_HINT}`);
+          result.errors.push(`Cloudflare build: ${(err as Error).message}`);
           result.success = false;
         }
       }
     }
 
-    // Write publish outcome back onto the profile so it survives a restart.
-    // main.ts will call saveSettings() after this returns.
     this.site.lastPublishFailed = !result.success;
     this.site.lastPublishError = result.success ? '' : (result.errors[0] ?? 'Unknown error');
 
     return result;
   }
 
-  /** package.json for the published repo so Cloudflare can `npx mdgarden build`. */
   private buildPackageJson(): string {
     const pkg = {
       name: this.site.name || 'my-mdgarden',
@@ -227,7 +289,6 @@ export class Publisher {
     return `${JSON.stringify(pkg, null, 2)}\n`;
   }
 
-  /** mdgarden.config.json generated from this site's profile (plugin-managed). */
   private buildMdgardenConfig(): string {
     const vaultName = this.app.vault.getName();
     const host = this.site.siteUrl.replace(/^https?:\/\//, '');
@@ -260,16 +321,19 @@ export class Publisher {
   }
 
   async unpublish(): Promise<void> {
-    if (this.hostingProvider !== 'cloudflare') {
-      throw new Error('Unpublish via API is only supported for Cloudflare Pages sites.');
+    if (this.hostingProvider === 'cloud-worker') {
+      const workerApi = new CloudWorkerApi(
+        this.settings.githubToken || this.settings.cloudflareToken || 'noteflare-token',
+        this.site.workerEndpoint || DEFAULT_WORKER_ENDPOINT,
+      );
+      await workerApi.unpublish(this.site.id);
+      return;
     }
+
     const cloudflare = new CloudflareApi(
       this.settings.cloudflareToken,
       this.settings.cloudflareAccount,
     );
-    // Pause the deployment — takes the site offline without deleting the project
-    // or any content. Re-publishing simply re-enables it via enableDeployment.
     await cloudflare.disableDeployment(this.site.cloudflareProject);
   }
-
 }

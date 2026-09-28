@@ -1,17 +1,16 @@
-import { Setting } from 'obsidian';
+import { Setting, setIcon } from 'obsidian';
 import type { NoteFlareSettingsTab } from '../settingsTab';
 import { buildCloudflareTokenUrl } from '../modals/helpers';
 import { CloudflareApi } from '../../../api/cloudflareApi';
 import { createErrorEl, showError, hideError, busy, idle } from '../settingsHelpers';
 import { renderRestoreFromRegistry } from './restoreSection';
 
-const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
 const CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
 
 export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElement): void {
     const s = tab.plugin.settings;
 
-    // ── Section 1: Connections ──────────────────────────────────────────────
+    // ── Section: Connections ────────────────────────────────────────────────
     const connHeading = new Setting(el);
     connHeading.setName('Connections');
     connHeading.setHeading();
@@ -19,7 +18,15 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
     // GitHub row
     const ghSetting = new Setting(el).setName('GitHub');
     if (s.githubToken && s.githubOwner) {
-      ghSetting.setDesc(`Connected as @${s.githubOwner}`);
+      const descEl = ghSetting.descEl;
+      descEl.addClass('nf-conn-desc');
+      const dot = descEl.createSpan({ cls: 'nf-status-dot connected' });
+      void dot;
+      const iconSpan = descEl.createSpan();
+      setIcon(iconSpan, 'check');
+      iconSpan.setCssStyles({ display: 'inline-flex', alignItems: 'center', width: '13px', height: '13px', color: 'var(--color-green)', marginRight: '3px' });
+      descEl.createSpan({ text: `Connected as @${s.githubOwner}` });
+
       ghSetting.addButton((b) => {
         b.setButtonText('Disconnect');
         b.buttonEl.addClass('mod-warning');
@@ -36,7 +43,12 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
         });
       });
     } else {
-      ghSetting.setDesc('Not connected');
+      const descEl = ghSetting.descEl;
+      descEl.addClass('nf-conn-desc');
+      const dot = descEl.createSpan({ cls: 'nf-status-dot disconnected' });
+      void dot;
+      descEl.createSpan({ text: 'Not connected' });
+
       ghSetting.addButton((b) => {
         b.setButtonText('Connect').setCta();
         b.onClick(() => { tab.hasInitializedWizard = false; tab.wizardStep = 'github'; tab.render(); });
@@ -46,15 +58,22 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
     // Cloudflare row
     const cfSetting = new Setting(el).setName('Cloudflare');
     if (s.cloudflareToken) {
+      const descEl = cfSetting.descEl;
+      descEl.addClass('nf-conn-desc');
+      const dot = descEl.createSpan({ cls: 'nf-status-dot connected' });
+      void dot;
+      const iconSpan = descEl.createSpan();
+      setIcon(iconSpan, 'check');
+      iconSpan.setCssStyles({ display: 'inline-flex', alignItems: 'center', width: '13px', height: '13px', color: 'var(--color-green)', marginRight: '3px' });
       const accountHint = s.cloudflareAccount
-        ? `Account: ${s.cloudflareAccount.slice(0, 8)}…`
+        ? `Connected · Account ${s.cloudflareAccount.slice(0, 8)}…`
         : 'Connected';
-      cfSetting.setDesc(accountHint);
-      // Reconnect is needed when the Cloudflare ↔ GitHub App authorization
-      // is revoked (e.g. after deleting and recreating the repo).
+      descEl.createSpan({ text: accountHint });
+
+      const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
       cfSetting.addButton((b) => {
-        b.setButtonText('Reconnect to GitHub');
-        b.setTooltip('Open Cloudflare ↔ GitHub App authorization if your builds are disconnected');
+        b.setButtonText('Authorize GitHub App ↗');
+        b.setTooltip('Authorize Cloudflare on GitHub if using legacy Cloudflare Pages');
         b.onClick(() => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
       });
       cfSetting.addButton((b) => {
@@ -70,7 +89,12 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
         });
       });
     } else {
-      cfSetting.setDesc('Not connected — required for Cloudflare Pages hosting');
+      const descEl = cfSetting.descEl;
+      descEl.addClass('nf-conn-desc');
+      const dot = descEl.createSpan({ cls: 'nf-status-dot disconnected' });
+      void dot;
+      descEl.createSpan({ text: 'Not connected — required for Cloudflare Pages hosting' });
+
       cfSetting.addButton((b) => {
         b.setButtonText('Connect');
         b.onClick(() => { tab.openCloudflareConnectFlow(); });
@@ -79,8 +103,6 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
 
     // Restore from vault registry (shown only when sites exist in registry but not in settings)
     void renderRestoreFromRegistry(tab, el);
-
-    // Reset is in the persistent footer below — removed from here to avoid duplication.
 }
 
 export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl: HTMLElement): void {
@@ -92,39 +114,33 @@ export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl
 
     containerEl.createEl('p', {
       cls: 'setting-item-description',
-      text: 'Two quick one-time steps in your browser:',
+      text: 'Enter your Cloudflare API credentials below:',
     });
 
     const cfSection = containerEl.createDiv();
-    const repoSlug = `${s.githubOwner}/${s.masterRepository || 'noteflare-sites'}`;
-
-    new Setting(cfSection)
-      .setName('1. Create a Cloudflare API token')
-      .setDesc('Creates a token with Pages, Workers, and Account permissions pre-filled.')
-      .addButton((b) => {
-        b.setButtonText('Create Token ↗');
-        b.onClick(() => { window.open(CLOUDFLARE_TOKEN_URL, '_blank'); });
-      });
-
-    new Setting(cfSection)
-      .setName('2. Authorize Cloudflare on GitHub')
-      .setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${repoSlug}`)
-      .addButton((b) => {
-        b.setButtonText('Authorize ↗');
-        b.onClick(() => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
-      });
 
     let cfToken = '';
     let cfAccount = '';
 
-    new Setting(cfSection)
-      .setName('Cloudflare API token')
-      .setDesc('Stored encrypted in your OS keychain.')
-      .addText((t) => {
-        t.setPlaceholder('Paste API token…');
-        t.inputEl.type = 'password';
-        t.onChange((v) => { cfToken = v.trim(); });
-      });
+    const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
+    const cfTokenSetting = new Setting(cfSection).setName('Cloudflare API token');
+    cfTokenSetting.descEl.appendText('Pre-filled permissions for Pages & Workers. ');
+    cfTokenSetting.descEl.createEl('a', {
+      text: 'Create token ↗',
+      href: CLOUDFLARE_TOKEN_URL,
+      attr: { target: '_blank', rel: 'noopener' },
+    });
+    cfTokenSetting.descEl.appendText(' · ');
+    cfTokenSetting.descEl.createEl('a', {
+      text: 'Authorize Pages App ↗',
+      href: CLOUDFLARE_APP_URL,
+      attr: { target: '_blank', rel: 'noopener', title: 'One-time authorization for legacy Cloudflare Pages' },
+    });
+    cfTokenSetting.addText((t) => {
+      t.setPlaceholder('Paste API token…');
+      t.inputEl.type = 'password';
+      t.onChange((v) => { cfToken = v.trim(); });
+    });
 
     new Setting(cfSection)
       .setName('Cloudflare account ID')
@@ -133,6 +149,30 @@ export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl
         t.setPlaceholder('Auto-detected');
         t.onChange((v) => { cfAccount = v.trim(); });
       });
+
+    const cfVideoContainer = containerEl.createDiv({ cls: 'noteflare-video-guide' });
+    cfVideoContainer.setCssStyles({
+      marginTop: '12px',
+      marginBottom: '16px',
+    });
+
+    const cfGifPath = tab.app.vault.adapter.getResourcePath(
+      `${tab.app.vault.configDir}/plugins/obsidian-noteflare/public/assets/cloudfalretoekncreation.gif`,
+    );
+
+    const cfGifEl = cfVideoContainer.createEl('img', {
+      attr: {
+        src: cfGifPath,
+        alt: 'Cloudflare token creation guide',
+      },
+    });
+    cfGifEl.setCssStyles({
+      width: '100%',
+      borderRadius: '8px',
+      display: 'block',
+    });
+
+
 
     const errorEl = createErrorEl(containerEl);
 
@@ -169,4 +209,4 @@ export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl
           })();
         });
       });
-  }
+}

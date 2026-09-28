@@ -41,7 +41,8 @@ export class Transformer {
     delete data.draft;
 
     const keys = Object.keys(data);
-    const yaml = keys.length ? stringifyYaml(data).trimEnd() : '';
+    const stringify = stringifyYaml as unknown as (obj: Record<string, unknown>) => string;
+    const yaml: string = keys.length ? stringify(data).trimEnd() : '';
     const block = yaml ? `---\n${yaml}\n---` : `---\n---`;
     const trailing = m[2] ? '\n' : '';
     return content.slice(0, m.index) + block + trailing + content.slice((m.index ?? 0) + m[0].length);

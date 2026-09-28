@@ -28,6 +28,9 @@ export function renderStepDone(tab: NoteFlareSettingsTab, el: HTMLElement): void
         later.onClick(() => {
           void (async () => {
             tab.hasInitializedWizard = false;
+            // FIX: Reset step so re-opening the wizard starts from the correct place,
+            // not wherever it was left (e.g. 'done'), which caused infinite Done-screen loops.
+            tab.wizardStep = tab.getInitialWizardStep();
             if (site) tab.closeSettings();
             else tab.render();
           })();

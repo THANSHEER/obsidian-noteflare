@@ -23,12 +23,23 @@ export class FileCollector {
 
       for (const path of this.publishPaths) {
         const abstractFile = this.app.vault.getAbstractFileByPath(path);
-        
+
         if (abstractFile instanceof TFile) {
           if (abstractFile.extension === 'md' && !this.isExcluded(abstractFile.path)) {
+            // Explicitly selected markdown file
             if (!result.some(f => f.path === abstractFile.path)) {
               result.push(abstractFile);
               explicitFiles.add(abstractFile.path);
+            }
+          } else if (
+            this.site.includeAttachments &&
+            ATTACHMENT_EXTS.has(abstractFile.extension.toLowerCase()) &&
+            !this.isExcluded(abstractFile.path)
+          ) {
+            // FIX: Explicitly selected attachment files were silently ignored before.
+            // Now they are included directly.
+            if (!result.some(f => f.path === abstractFile.path)) {
+              result.push(abstractFile);
             }
           }
         } else if (abstractFile instanceof TFolder) {
@@ -38,6 +49,7 @@ export class FileCollector {
               if (file.extension === 'md') {
                 if (!result.some(f => f.path === file.path)) {
                   result.push(file);
+                  explicitFiles.add(file.path);
                 }
               } else if (
                 this.site.includeAttachments &&
@@ -94,12 +106,19 @@ export class FileCollector {
     return result;
   }
 
+  /**
+   * FIX: Use chunked base64 encoding (same as backupEngine.ts) to avoid the
+   * O(n²) string concatenation that froze Obsidian on large attachments.
+   * Old: byte-by-byte loop → 5M concat operations for a 5MB file.
+   * New: 32KB chunks → ~160 operations for the same file.
+   */
   async readAsBase64(file: TFile): Promise<string> {
     const buffer = await this.app.vault.readBinary(file);
     const bytes = new Uint8Array(buffer);
     let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    const chunkSize = 0x8000; // 32 KB
+    for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
     }
     return btoa(binary);
   }

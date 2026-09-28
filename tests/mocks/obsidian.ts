@@ -48,25 +48,44 @@ export class Plugin {
 }
 export class PluginSettingTab {
   constructor(public app: App, public plugin: Plugin) {}
+  getSettingDefinitions(): any[] {
+    return [];
+  }
 }
+export type SettingDefinitionItem = any;
 export class Modal {
   titleEl = { setText: jest.fn() };
   contentEl = {
     empty: jest.fn(),
-    createEl: jest.fn(() => ({
-      setCssStyles: jest.fn(),
-      addEventListener: jest.fn(),
-      createEl: jest.fn(() => ({})),
-      hide: jest.fn(),
-      show: jest.fn(),
-      setText: jest.fn(),
-    })),
-    createDiv: jest.fn(() => ({
-      empty: jest.fn(),
-      setCssStyles: jest.fn(),
-      createEl: jest.fn(() => ({})),
-      createDiv: jest.fn(() => ({})),
-    })),
+    addClass: jest.fn(),
+    createEl: jest.fn(function createMockEl(): any {
+      return {
+        setCssStyles: jest.fn(),
+        addEventListener: jest.fn(),
+        createEl: jest.fn(createMockEl),
+        createDiv: jest.fn(createMockEl),
+        createSpan: jest.fn(createMockEl),
+        hide: jest.fn(),
+        show: jest.fn(),
+        setText: jest.fn(),
+        getText: jest.fn(() => ''),
+        addClass: jest.fn(),
+        empty: jest.fn(),
+      };
+    }),
+    createDiv: jest.fn(function createMockDiv(): any {
+      return {
+        empty: jest.fn(),
+        setCssStyles: jest.fn(),
+        addEventListener: jest.fn(),
+        createEl: jest.fn(createMockDiv),
+        createDiv: jest.fn(createMockDiv),
+        createSpan: jest.fn(createMockDiv),
+        addClass: jest.fn(),
+        setText: jest.fn(),
+        getText: jest.fn(() => ''),
+      };
+    }),
   };
   constructor(public app: App) {}
   open() {}
@@ -116,9 +135,26 @@ export class Setting {
   setDesc = jest.fn().mockReturnThis();
   setHeading = jest.fn().mockReturnThis();
   addText = jest.fn().mockReturnThis();
-  addButton = jest.fn().mockReturnThis();
+  addButton = jest.fn((cb?: any) => {
+    cb?.({
+      setButtonText: jest.fn().mockReturnThis(),
+      setCta: jest.fn().mockReturnThis(),
+      setTooltip: jest.fn().mockReturnThis(),
+      setDisabled: jest.fn().mockReturnThis(),
+      setIcon: jest.fn().mockReturnThis(),
+      onClick: jest.fn().mockReturnThis(),
+    });
+    return this;
+  });
   addDropdown = jest.fn().mockReturnThis();
-  addToggle = jest.fn().mockReturnThis();
+  addToggle = jest.fn((cb?: any) => {
+    cb?.({
+      setValue: jest.fn().mockReturnThis(),
+      onChange: jest.fn().mockReturnThis(),
+      setDisabled: jest.fn().mockReturnThis(),
+    });
+    return this;
+  });
 }
 
 export class TAbstractFile {
@@ -142,4 +178,20 @@ export const parseYaml = (yaml: string) => {
 export const stringifyYaml = (obj: object) => {
   return Object.entries(obj).map(([k, v]) => `${k}: ${String(v)}`).join('\n');
 };
+
+export class MarkdownRenderer {
+  static render = jest.fn(async (_app: any, markdown: string, el: HTMLElement) => {
+    el.createDiv({ text: markdown });
+  });
+}
+
+export class Component {
+  load = jest.fn();
+  unload = jest.fn();
+  addChild = jest.fn();
+  removeChild = jest.fn();
+  register = jest.fn();
+  registerEvent = jest.fn();
+  registerInterval = jest.fn();
+}
 

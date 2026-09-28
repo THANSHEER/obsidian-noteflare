@@ -37,6 +37,30 @@ export function renderStepGitHub(tab: NoteFlareSettingsTab, el: HTMLElement): vo
       });
     });
 
+    const videoContainer = el.createDiv({ cls: 'noteflare-video-guide' });
+    videoContainer.setCssStyles({
+      marginTop: '12px',
+      marginBottom: '16px',
+    });
+
+    const gifPath = tab.app.vault.adapter.getResourcePath(
+      `${tab.app.vault.configDir}/plugins/obsidian-noteflare/public/assets/githubtokencreation.gif`,
+    );
+
+    const gifEl = videoContainer.createEl('img', {
+      attr: {
+        src: gifPath,
+        alt: 'GitHub token creation guide',
+      },
+    });
+    gifEl.setCssStyles({
+      width: '100%',
+      borderRadius: '8px',
+      display: 'block',
+    });
+
+
+
     const errorEl = createErrorEl(el);
 
     new Setting(el).addButton((btn) => {

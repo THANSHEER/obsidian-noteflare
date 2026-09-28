@@ -2,12 +2,10 @@ import { requestUrl } from 'obsidian';
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 
-// Install deps first, then build with mdgarden. A bare `npx mdgarden build`
-// might work if caching is perfect, but this guarantees the version pinned in
-// package.json is installed before execution.
-// `npm ci || npm install` acts as a fallback for missing lockfiles.
-// Without this, npx would interactively prompt "Need to install... Ok to proceed? (y)"
-const MDGARDEN_BUILD_COMMAND = 'npm ci || npm install && npx mdgarden build';
+// FIX: parentheses enforce correct precedence so mdgarden build ALWAYS runs
+// after install. Without parens: `npm ci || (npm install && npx mdgarden build)`
+// means mdgarden build is SKIPPED when npm ci succeeds → blank site every time.
+const MDGARDEN_BUILD_COMMAND = '(npm ci || npm install) && npx mdgarden build';
 
 interface CloudflareApiError {
   errors?: Array<{ message?: string }>;
@@ -27,11 +25,26 @@ export class CloudflareApi {
     };
   }
 
+  private async ensureAccountId(): Promise<void> {
+    if (!this.accountId) {
+      this.accountId = await this.getAccountId();
+    }
+  }
+
   private async request<T>(
     path: string,
     method = 'GET',
     body?: Record<string, unknown>,
   ): Promise<T> {
+    if (path.startsWith('/accounts/') && !this.accountId && path !== '/accounts') {
+      try {
+        await this.ensureAccountId();
+      } catch (e) {
+        throw new Error('Please enter your Cloudflare Account ID (found on your Cloudflare dashboard overview).');
+      }
+      path = path.replace('/accounts//', `/accounts/${this.accountId}/`);
+    }
+
     try {
       const resp = await requestUrl({
         url: `${CF_API}${path}`,
@@ -79,8 +92,7 @@ export class CloudflareApi {
   /**
    * Lists the accounts this token can reach and returns the first id.
    * Lets the wizard auto-detect the Account ID so the user never has to copy
-   * the 32-character value out of the dashboard by hand. Requires the token to
-   * include Account Settings: Read (bundled into our token template link).
+   * the 32-character value out of the dashboard by hand.
    */
   async getAccountId(): Promise<string> {
     const data = await this.request<{ result?: Array<{ id?: string }> }>('/accounts');
@@ -111,8 +123,6 @@ export class CloudflareApi {
           config: {
             owner: githubOwner,
             repo_name: repo,
-            // The repo's default branch (main). Building a non-existent branch
-            // yields a blank site / 522.
             production_branch: branch,
             deployments_enabled: true,
           },
@@ -132,11 +142,8 @@ export class CloudflareApi {
 
   /**
    * Repair the build settings on an EXISTING project so a re-publish self-heals
-   * a project that was created with a bad build command or wrong branch — the
-   * user never has to edit the Cloudflare dashboard. Called every publish.
-   * - build_command must install deps before `npx mdgarden build` (see above).
-   * - production_branch must be the repo's real default branch (main) or
-   *   Cloudflare builds a non-existent branch → blank site / 522.
+   * a project that was created with a bad build command or wrong branch.
+   * Retries up to `maxAttempts` times on 404/409 (project just provisioned).
    */
   async configureBuild(
     name: string,
@@ -144,33 +151,50 @@ export class CloudflareApi {
     repo: string,
     branch: string,
     rootDir: string = '',
+    maxAttempts = 3,
   ): Promise<void> {
-    await this.request(
-      `/accounts/${this.accountId}/pages/projects/${name}`,
-      'PATCH',
-      {
-        build_config: {
-          build_command: MDGARDEN_BUILD_COMMAND,
-          destination_dir: 'public',
-          root_dir: rootDir,
-        },
-        source: {
-          type: 'github',
-          config: {
-            owner: githubOwner,
-            repo_name: repo,
-            production_branch: branch,
-            deployments_enabled: true,
+    let lastErr: Error | null = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await this.request(
+          `/accounts/${this.accountId}/pages/projects/${name}`,
+          'PATCH',
+          {
+            build_config: {
+              build_command: MDGARDEN_BUILD_COMMAND,
+              destination_dir: 'public',
+              root_dir: rootDir,
+            },
+            source: {
+              type: 'github',
+              config: {
+                owner: githubOwner,
+                repo_name: repo,
+                production_branch: branch,
+                deployments_enabled: true,
+              },
+            },
           },
-        },
-      },
-    );
+        );
+        return; // success
+      } catch (err: unknown) {
+        lastErr = err as Error;
+        const status = (lastErr as Error & { status?: number }).status;
+        // 404/409 = project just created and not yet fully provisioned — retry
+        if ((status === 404 || status === 409) && attempt < maxAttempts - 1) {
+          await new Promise(r => window.setTimeout(r, 2000 * (attempt + 1)));
+          continue;
+        }
+        throw lastErr;
+      }
+    }
+    if (lastErr) throw lastErr;
   }
 
   /**
    * Forces a fresh production build. Content commits normally trigger a build
    * via the git webhook, but firing this explicitly guarantees the latest notes
-   * actually get deployed. Best-effort — the caller treats failure as non-fatal.
+   * actually get deployed.
    */
   async triggerDeployment(name: string, branch: string): Promise<void> {
     await this.request(
@@ -203,7 +227,6 @@ export class CloudflareApi {
   /**
    * Pause a Cloudflare Pages deployment — takes the site offline without
    * deleting the project or any content. `enableDeployment` restores it.
-   * This is the correct backend for "Unpublish".
    */
   async disableDeployment(name: string): Promise<void> {
     await this.request(
