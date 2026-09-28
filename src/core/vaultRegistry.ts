@@ -38,8 +38,13 @@ export class VaultRegistry {
       }
       await app.vault.adapter.write(REGISTRY_PATH, JSON.stringify(registry, null, 2));
     } catch (err) {
-      // Non-fatal — the manage panel will still work, the registry just won't persist.
-      console.warn('NoteFlare: could not write vault registry:', err);
+      // FIX: Log a clear warning so the user understands why sites won't restore
+      // after a plugin reinstall. Previously this was a silent console.warn.
+      console.error(
+        'NoteFlare: vault registry write failed. Sites will not be restorable after a reinstall. ' +
+        'Check that the vault folder is writable.',
+        err,
+      );
     }
   }
 

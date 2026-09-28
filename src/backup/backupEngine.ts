@@ -63,7 +63,7 @@ export class BackupEngine {
       }
       github = new GitHubApi(githubToken, githubOwner, backup.repository, branch);
 
-      const localFiles = await this.collectLocalFiles();
+      const { files: localFiles, skipped } = await this.collectLocalFiles();
       const remoteFiles = await this.getRemoteFiles(github);
       const uploads: UploadFile[] = [];
 
@@ -82,6 +82,17 @@ export class BackupEngine {
         }
       }
 
+      // FIX: Report skipped files as non-fatal warnings so user knows backup is incomplete.
+      if (skipped.length > 0) {
+        const preview = skipped.slice(0, 3).join(', ');
+        const more = skipped.length > 3 ? ` …and ${skipped.length - 3} more` : '';
+        result.errors.push(
+          `Warning: ${skipped.length} file(s) could not be read and were skipped: ${preview}${more}. Your backup may be incomplete.`,
+        );
+        // Still treat this as a "success" overall — partial backup is better than nothing.
+        // Callers in main.ts check errors length to surface the warning.
+      }
+
       if (uploads.length === 0) return result;
 
       const timestamp = new Date().toLocaleString();
@@ -96,7 +107,8 @@ export class BackupEngine {
 
       result.success = committed.success;
       result.updated = committed.uploaded;
-      result.errors = committed.errors;
+      // Merge commit errors with any skip warnings already in result.errors
+      result.errors = [...result.errors, ...committed.errors];
     } catch (error: unknown) {
       result.success = false;
       result.errors.push(error instanceof Error ? error.message : 'Backup failed.');
@@ -105,8 +117,9 @@ export class BackupEngine {
     return result;
   }
 
-  private async collectLocalFiles(): Promise<Map<string, LocalBackupFile>> {
+  private async collectLocalFiles(): Promise<{ files: Map<string, LocalBackupFile>; skipped: string[] }> {
     const files = new Map<string, LocalBackupFile>();
+    const skipped: string[] = [];
 
     for (const file of this.app.vault.getFiles()) {
       if (this.isIgnored(file.path)) continue;
@@ -117,12 +130,15 @@ export class BackupEngine {
           content: this.toBase64(bytes),
           sha: await this.computeGitBlobSha(bytes),
         });
-      } catch {
-        // A transiently unreadable file is skipped without deleting its backup.
+      } catch (err: unknown) {
+        // FIX: Track skipped files instead of silently dropping them.
+        // A file that fails to read is skipped without deleting its remote backup copy,
+        // but the user is informed so they know the backup may be incomplete.
+        skipped.push(file.path);
       }
     }
 
-    return files;
+    return { files, skipped };
   }
 
   private async getRemoteFiles(github: GitHubApi): Promise<Map<string, string>> {
@@ -143,7 +159,7 @@ export class BackupEngine {
   private isIgnored(path: string): boolean {
     const configDir = this.app.vault.configDir;
     if (path === configDir || path.startsWith(`${configDir}/`)) return true;
-    
+
     return DEFAULT_IGNORE_PATTERNS.some((pattern) => {
       if (pattern.endsWith('/')) {
         return path === pattern.slice(0, -1) || path.startsWith(pattern);

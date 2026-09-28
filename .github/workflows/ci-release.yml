@@ -74,14 +74,49 @@ jobs:
         if: steps.check.outputs.bump == 'true'
         run: npm run build
 
-      - name: Attest Build Provenance
+      - name: Package Release Zip & Checksum
         if: steps.check.outputs.bump == 'true'
-        uses: actions/attest-build-provenance@v1
+        run: |
+          VERSION="${{ steps.check.outputs.version }}"
+          PLUGIN_ID=$(node -p "try { require('./manifest.json').id } catch(e) { '' }")
+          if [ -z "$PLUGIN_ID" ]; then
+            PLUGIN_ID="noteflare"
+          fi
+          if [[ "$PLUGIN_ID" != obsidian-* ]]; then
+            REPO_PKG_ID="obsidian-${PLUGIN_ID}"
+          else
+            REPO_PKG_ID="${PLUGIN_ID}"
+          fi
+          ZIP_NAME="${REPO_PKG_ID}-${VERSION}.zip"
+          FILES="main.js manifest.json"
+          if [ -f styles.css ]; then
+            FILES="$FILES styles.css"
+          fi
+          zip -j "$ZIP_NAME" $FILES
+          sha256sum "$ZIP_NAME" > "${ZIP_NAME}.sha256"
+
+          LEGACY_ZIP="${PLUGIN_ID}-${VERSION}.zip"
+          if [ "$LEGACY_ZIP" != "$ZIP_NAME" ]; then
+            cp "$ZIP_NAME" "$LEGACY_ZIP"
+            sha256sum "$LEGACY_ZIP" > "${LEGACY_ZIP}.sha256"
+          fi
+          cp "$ZIP_NAME" "${PLUGIN_ID}.zip"
+          sha256sum "${PLUGIN_ID}.zip" > "${PLUGIN_ID}.zip.sha256"
+
+      - name: Attest Build Provenance (Sigstore)
+        if: steps.check.outputs.bump == 'true'
+        uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
             main.js
             manifest.json
             styles.css
+            obsidian-noteflare-*.zip
+            obsidian-noteflare-*.zip.sha256
+            noteflare-*.zip
+            noteflare-*.zip.sha256
+            noteflare.zip
+            noteflare.zip.sha256
 
       - name: Extract release notes and title from CHANGELOG.md
         if: steps.check.outputs.bump == 'true'
@@ -97,7 +132,7 @@ jobs:
           import os, re, sys
           version = os.environ["VERSION"]
           text = open("CHANGELOG.md", encoding="utf-8").read()
-          pattern = re.compile(r"^## \[" + re.escape(version) + r"\].*?(?=^## \[|\Z)", re.M | re.S)
+          pattern = re.compile(r"^## \[?" + re.escape(version) + r"\]?.*?(?=^## \[?|\Z)", re.M | re.S)
           match = pattern.search(text)
           if not match:
               print(f"No changelog entry found for version {version}", file=sys.stderr)
@@ -105,9 +140,11 @@ jobs:
           lines = match.group(0).splitlines()
           while lines and lines[-1].strip() in ("", "---"):
               lines.pop()
-          # Section headers (### Features, ### Fixes, ...) aren't release titles —
-          # always name the release after the version itself.
-          title = f"v{version}"
+          # Extract release title from the heading in CHANGELOG.md (e.g. "## [1.2.3] - 2026-09-02" -> "[1.2.3] - 2026-09-02")
+          header_line = lines[0] if lines else ""
+          title = re.sub(r"^#+\s*", "", header_line).strip()
+          if not title:
+              title = f"v{version}"
           notes = "\n".join(lines).strip()
           with open("release_notes.txt", "w", encoding="utf-8") as f:
               f.write(notes + "\n")
@@ -131,5 +168,15 @@ jobs:
             main.js
             manifest.json
             styles.css
+            obsidian-noteflare-${{ steps.check.outputs.version }}.zip
+            obsidian-noteflare-${{ steps.check.outputs.version }}.zip.sha256
+            noteflare-${{ steps.check.outputs.version }}.zip
+            noteflare-${{ steps.check.outputs.version }}.zip.sha256
+            noteflare.zip
+            noteflare.zip.sha256
+          draft: false
+          prerelease: false
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

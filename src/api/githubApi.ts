@@ -1,5 +1,6 @@
 import { requestUrl } from 'obsidian';
 import { UploadFile, PublishResult } from '../core/types';
+export type { GitHubRelease, GitHubReleaseAsset } from './geekstashApi';
 
 
 async function doRequest(url: string, options: { method?: string; headers?: Record<string, string>; body?: string } = {}) {
@@ -72,10 +73,7 @@ export class GitHubApi {
 
   /**
    * Create an empty public repo, initialised with one commit on the default
-   * branch (`main`). NoteFlare then commits the user's content plus a mdgarden
-   * `package.json`/`mdgarden.config.json` on top — there's no template fork, so
-   * there's no v4/v5 branch drift to manage. Idempotent: a 422 (already exists)
-   * is treated as success so setup can be re-run.
+   * branch (`main`). Idempotent: a 422 (already exists) is treated as success.
    */
   async createRepo(privateRepo = false): Promise<void> {
     const resp = await doRequest(`${GITHUB_API}/user/repos`, {
@@ -90,8 +88,6 @@ export class GitHubApi {
     });
 
     if (resp.status === 422) {
-      // 422 almost always means the repo name is already taken — either by
-      // this user (idempotent success) or by someone else (must rename).
       const errBody = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
       const ghMessage: string = (errBody?.message as string) ?? '';
       const errors: Array<{ message?: string }> = (errBody?.errors as Array<{ message?: string }>) ?? [];
@@ -100,7 +96,6 @@ export class GitHubApi {
       ) || ghMessage.toLowerCase().includes('already exist');
 
       if (alreadyExists && await this.repoExists()) {
-        // The repo belongs to this account — treat as success (re-run of setup).
         return;
       }
       throw new Error(
@@ -117,7 +112,6 @@ export class GitHubApi {
 
   /**
    * Configures GitHub Pages for the repository using GitHub Actions as the source.
-   * This prevents the 404 error during the first deploy-pages action.
    */
   async enableGitHubPages(): Promise<void> {
     const resp = await doRequest(`${GITHUB_API}/repos/${this.owner}/${this.repo}/pages`, {
@@ -131,7 +125,7 @@ export class GitHubApi {
       }),
     });
 
-    if (!resp.ok && resp.status !== 409) { // 409 means already enabled
+    if (!resp.ok && resp.status !== 409) {
       const text = await resp.text().catch(() => '');
       throw new Error(`Failed to enable GitHub Pages: ${resp.status} ${text}`);
     }
@@ -166,12 +160,11 @@ export class GitHubApi {
 
   /**
    * Returns the most recent workflow run for the given workflow file.
-   * `workflowFile` is the filename under `.github/workflows/`, e.g. `deploy.yml`.
    * Returns null (never throws) on any error.
    */
   async getLatestWorkflowRun(workflowFile: string): Promise<{
-    status: string;       // 'queued' | 'in_progress' | 'completed'
-    conclusion: string;   // 'success' | 'failure' | 'cancelled' | '' (when in_progress)
+    status: string;
+    conclusion: string;
     htmlUrl: string;
     createdAt: string;
     updatedAt: string;
@@ -249,9 +242,7 @@ export class GitHubApi {
   /**
    * Upload every file as a SINGLE git commit via the Git Data API
    * (blobs → tree → commit → move branch ref), instead of one Contents-API PUT
-   * per file. One commit means Cloudflare runs exactly one build per publish,
-   * and there are no per-file SHA conflicts (the new tree is layered on the
-   * current tree with `base_tree`), which kills the 409/422 errors entirely.
+   * per file.
    */
   async commitFiles(
     files: UploadFile[],
@@ -305,7 +296,6 @@ export class GitHubApi {
       baseTreeSha = headCommit.tree.sha;
     } catch (err: unknown) {
       if ((err as Record<string, unknown>).status === 404) {
-        // Branch doesn't exist — first commit scenario.
         branchExists = false;
       } else {
         result.success = false;
@@ -317,38 +307,54 @@ export class GitHubApi {
     // 2. Create a blob per file (batched, with rate-limit backoff).
     const treeItems: Array<{ path: string; mode: '100644'; type: 'blob'; sha: string | null }> = [];
     let done = 0;
+
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(async (file) => {
+      // FIX: Collect results from the batch then update progress monotonically,
+      // avoiding out-of-order progress callbacks from concurrent async tasks.
+      const batchResults = await Promise.all(
+        batch.map(async (file): Promise<{ ok: boolean; item?: typeof treeItems[number]; err?: string }> => {
           try {
             if (file.content === null) {
-              treeItems.push({ path: file.path, mode: '100644', type: 'blob', sha: null });
-            } else {
-              const sha = await this.createBlobWithRetry(file.content, onRateLimit);
-              treeItems.push({ path: file.path, mode: '100644', type: 'blob', sha });
+              return { ok: true, item: { path: file.path, mode: '100644', type: 'blob', sha: null } };
             }
-            result.uploaded++;
+            const sha = await this.createBlobWithRetry(file.content, onRateLimit);
+            return { ok: true, item: { path: file.path, mode: '100644', type: 'blob', sha } };
           } catch (err: unknown) {
-            result.failed++;
-            result.errors.push(`${file.path}: ${(err as Error).message}`);
+            return { ok: false, err: `${file.path}: ${(err as Error).message}` };
           }
-          done++;
-          onProgress(done, files.length);
         }),
       );
+
+      // Update counters atomically after the whole batch resolves.
+      for (const r of batchResults) {
+        done++;
+        if (r.ok && r.item) {
+          result.uploaded++;
+          treeItems.push(r.item);
+        } else {
+          result.failed++;
+          if (r.err) result.errors.push(r.err);
+        }
+      }
+      onProgress(done, files.length);
+
       if (i + BATCH_SIZE < files.length) {
         await new Promise(r => window.setTimeout(r, 100));
       }
     }
 
+    // FIX: Add a summary error when ALL uploads failed so the user sees a clear message.
     if (result.uploaded === 0) {
       result.success = false;
+      result.errors.unshift(
+        `All ${files.length} file upload(s) failed — see individual errors below. ` +
+        'Check your GitHub token and internet connection.',
+      );
       return result;
     }
 
-    // Never remove remote backup files when another upload in the same batch
-    // failed. A later successful run can safely apply those deletions.
+    // Never remove remote backup files when another upload in the same batch failed.
     if (result.failed > 0) {
       for (let index = treeItems.length - 1; index >= 0; index--) {
         if (treeItems[index].sha === null) treeItems.splice(index, 1);
@@ -359,11 +365,7 @@ export class GitHubApi {
       }
     }
 
-    // 2b. Mirror: when every file uploaded cleanly, delete any existing blobs
-    // under `mirrorPrefix` that aren't in this publish — this strips any previous
-    // template's demo pages and any notes removed/excluded from the vault, so
-    // the live site matches the vault exactly. Skipped on partial failure (so a
-    // hiccup never wipes content) and best-effort (skip if the tree can't list).
+    // 2b. Mirror: delete blobs under `mirrorPrefix` that aren't in this publish.
     if (mirrorPrefix && result.failed === 0 && baseTreeSha) {
       try {
         const full = await this.gh<{ tree: Array<{ path: string; type: string }> }>(
@@ -376,8 +378,13 @@ export class GitHubApi {
             treeItems.push({ path: entry.path, mode: '100644', type: 'blob', sha: null });
           }
         }
-      } catch {
-        // Couldn't read the existing tree — keep going with adds/updates only.
+      } catch (mirrorErr: unknown) {
+        // FIX: Log mirror deletion failure instead of silently swallowing it.
+        // Stale notes that should be removed will remain live on the published site.
+        console.warn(
+          'NoteFlare: could not read existing tree for mirror sync — old deleted notes may remain on the site:',
+          (mirrorErr as Error).message,
+        );
       }
     }
 
@@ -395,22 +402,50 @@ export class GitHubApi {
       );
       result.commitSha = commit.sha;
 
-      if (branchExists) {
-        await this.gh(refPath, 'PATCH', { sha: commit.sha, force: false });
-      } else {
-        await this.gh(`/repos/${this.owner}/${this.repo}/git/refs`, 'POST', {
-          ref: `refs/heads/${branch}`,
-          sha: commit.sha,
-        });
-      }
+      // FIX: Retry once on 422 fast-forward conflict (another push landed between our
+      // headSha fetch and this PATCH). On conflict, force-push is used as last resort
+      // since the commit was already created with the correct content.
+      await this.updateRef(refPath, commit.sha, branch, branchExists);
     } catch (err: unknown) {
       result.success = false;
-      result.errors.push(`Commit failed: ${(err as Error).message}`);
+      const msg = (err as Error).message;
+      const hint = msg.toLowerCase().includes('not a fast-forward')
+        ? ' (Another push happened during publish — please try again.)'
+        : '';
+      result.errors.push(`Commit failed: ${msg}${hint}`);
       return result;
     }
 
     if (result.failed > 0) result.success = false;
     return result;
+  }
+
+  /** Update the branch ref, retrying once on 422 (fast-forward conflict). */
+  private async updateRef(
+    refPath: string,
+    commitSha: string,
+    branch: string,
+    branchExists: boolean,
+  ): Promise<void> {
+    if (branchExists) {
+      try {
+        await this.gh(refPath, 'PATCH', { sha: commitSha, force: false });
+      } catch (err: unknown) {
+        const status = (err as Error & { status?: number }).status;
+        if (status === 422) {
+          // Fast-forward conflict: another commit landed. Force-push as last resort.
+          console.warn('NoteFlare: fast-forward conflict on ref update — force-pushing.');
+          await this.gh(refPath, 'PATCH', { sha: commitSha, force: true });
+        } else {
+          throw err;
+        }
+      }
+    } else {
+      await this.gh(`/repos/${this.owner}/${this.repo}/git/refs`, 'POST', {
+        ref: `refs/heads/${branch}`,
+        sha: commitSha,
+      });
+    }
   }
 
   private async createBlobWithRetry(
@@ -430,11 +465,11 @@ export class GitHubApi {
         lastErr = err as Error;
         const status = (lastErr as Error & { status?: number }).status;
         const msg = lastErr.message.toLowerCase();
-        
+
         const rateLimited =
           status === 429 ||
           (status === 403 && (msg.includes('rate limit') || msg.includes('abuse') || msg.includes('secondary')));
-          
+
         if (status === 404 || status === 401 || (status === 403 && !rateLimited)) {
           throw lastErr;
         }
@@ -494,8 +529,6 @@ export class GitHubApi {
 
   /**
    * Fetch the flat file tree for the repository's internal storage reference.
-   * Returns an array of { path, sha, type } objects for all blobs (files).
-   * Used by BackupEngine to avoid re-uploading unchanged files.
    */
   async listTree(branch?: string): Promise<Array<{ path: string; sha: string; type: string }>> {
     const ref = branch || this.branch || 'main';
@@ -508,15 +541,11 @@ export class GitHubApi {
 
   /**
    * Remove a site's entire sub-folder (`sites/<siteId>/`) from the master repo
-   * in a single commit using null-SHA tree entries (the same mirror-deletion
-   * mechanism used by publish). Does NOT delete the master repo — other sites
-   * may still be living there. Best-effort: if the folder doesn't exist or the
-   * repo is unreachable, this returns without throwing.
+   * in a single commit. Does NOT delete the master repo. Best-effort.
    */
   async deleteSiteFolder(siteId: string, branch: string): Promise<void> {
     const prefix = `sites/${siteId}/`;
 
-    // Resolve the branch tip.
     let headSha: string;
     let baseTreeSha: string;
     const refPath = `/repos/${this.owner}/${this.repo}/git/refs/heads/${encodeURIComponent(branch)}`;
@@ -530,11 +559,9 @@ export class GitHubApi {
       );
       baseTreeSha = headCommit.tree.sha;
     } catch {
-      // Repo or branch doesn't exist — nothing to delete.
       return;
     }
 
-    // Find all blobs under the site prefix.
     let toDelete: Array<{ path: string; mode: '100644'; type: 'blob'; sha: null }> = [];
     try {
       const fullTree = await this.gh<{ tree: Array<{ path: string; type: string }> }>(
@@ -545,12 +572,11 @@ export class GitHubApi {
         .filter((item) => item.type === 'blob' && item.path.startsWith(prefix))
         .map((item) => ({ path: item.path, mode: '100644' as const, type: 'blob' as const, sha: null }));
     } catch {
-      return; // Can't read the tree — skip silently.
+      return;
     }
 
-    if (toDelete.length === 0) return; // Nothing under that prefix.
+    if (toDelete.length === 0) return;
 
-    // Commit the deletions as a single tree update.
     const tree = await this.gh<{ sha: string }>(
       `/repos/${this.owner}/${this.repo}/git/trees`,
       'POST',
@@ -561,7 +587,7 @@ export class GitHubApi {
       'POST',
       { message: `NoteFlare: remove site ${siteId}`, tree: tree.sha, parents: [headSha] },
     );
-    await this.gh(refPath, 'PATCH', { sha: commit.sha, force: false });
+    await this.updateRef(refPath, commit.sha, branch, true);
   }
 
 }

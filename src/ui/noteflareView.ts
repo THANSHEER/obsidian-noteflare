@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf, setIcon, Setting, Notice } from 'obsidian';
-import { AddSiteModal, UnpublishModal, EditSiteModal, RemoveSiteModal, PathSuggestModal, GitHubPagesUnpublishModal } from './settings/modals';
+import { AddSiteModal, UnpublishModal, EditSiteModal, RemoveSiteModal, PathSuggestModal } from './settings/modals';
 import type NoteFlarePlugin from '../../main';
 import type { LiveSiteStatus } from '../../main';
 import { SiteProfile } from '../core/types';

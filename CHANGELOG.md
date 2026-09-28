@@ -5,8 +5,6 @@ All notable changes to NoteFlare are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [1.2.4] - 2026-09-27
 
 ### Added
@@ -60,7 +58,7 @@ No breaking changes.
 ### Changed
 - Added `NoteFlare: Open setup wizard` command to the Obsidian Command Palette (`Ctrl/Cmd+P`).
 - Setup Wizard now launches automatically on initial install/activation if setup is not yet completed.
-- Updated README branding to use the official product logo SVG (`public/logo.svg`).
+- Updated README branding to use the official product logo SVG (`public/logo/logo.svg`).
 
 ---
 

@@ -76,12 +76,12 @@ describe('VaultRegistry', () => {
     
     it('handles write errors gracefully without crashing', async () => {
       mockApp.vault.adapter.write.mockRejectedValueOnce(new Error('Write failed'));
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       
       await expect(VaultRegistry.save(mockApp, { version: 1, entries: [] })).resolves.not.toThrow();
       
       expect(consoleSpy).toHaveBeenCalledWith(
-        'NoteFlare: could not write vault registry:',
+        expect.stringContaining('NoteFlare: vault registry write failed'),
         expect.any(Error)
       );
       consoleSpy.mockRestore();

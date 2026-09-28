@@ -1,4 +1,4 @@
-import { Setting } from 'obsidian';
+import { Setting, setIcon } from 'obsidian';
 import type { NoteFlareSettingsTab } from '../settingsTab';
 import { buildCloudflareTokenUrl } from '../modals/helpers';
 import { CloudflareApi } from '../../../api/cloudflareApi';
@@ -11,7 +11,7 @@ const CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
 export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElement): void {
     const s = tab.plugin.settings;
 
-    // ── Section 1: Connections ──────────────────────────────────────────────
+    // ── Section: Connections ────────────────────────────────────────────────
     const connHeading = new Setting(el);
     connHeading.setName('Connections');
     connHeading.setHeading();
@@ -19,7 +19,16 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
     // GitHub row
     const ghSetting = new Setting(el).setName('GitHub');
     if (s.githubToken && s.githubOwner) {
-      ghSetting.setDesc(`Connected as @${s.githubOwner}`);
+      // Use the status dot + inline description
+      const descEl = ghSetting.descEl;
+      descEl.addClass('nf-conn-desc');
+      const dot = descEl.createSpan({ cls: 'nf-status-dot connected' });
+      void dot;
+      const iconSpan = descEl.createSpan();
+      setIcon(iconSpan, 'check');
+      iconSpan.setCssStyles({ display: 'inline-flex', alignItems: 'center', width: '13px', height: '13px', color: 'var(--color-green)', marginRight: '3px' });
+      descEl.createSpan({ text: `Connected as @${s.githubOwner}` });
+
       ghSetting.addButton((b) => {
         b.setButtonText('Disconnect');
         b.buttonEl.addClass('mod-warning');
@@ -36,7 +45,12 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
         });
       });
     } else {
-      ghSetting.setDesc('Not connected');
+      const descEl = ghSetting.descEl;
+      descEl.addClass('nf-conn-desc');
+      const dot = descEl.createSpan({ cls: 'nf-status-dot disconnected' });
+      void dot;
+      descEl.createSpan({ text: 'Not connected' });
+
       ghSetting.addButton((b) => {
         b.setButtonText('Connect').setCta();
         b.onClick(() => { tab.hasInitializedWizard = false; tab.wizardStep = 'github'; tab.render(); });
@@ -46,10 +60,18 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
     // Cloudflare row
     const cfSetting = new Setting(el).setName('Cloudflare');
     if (s.cloudflareToken) {
+      const descEl = cfSetting.descEl;
+      descEl.addClass('nf-conn-desc');
+      const dot = descEl.createSpan({ cls: 'nf-status-dot connected' });
+      void dot;
+      const iconSpan = descEl.createSpan();
+      setIcon(iconSpan, 'check');
+      iconSpan.setCssStyles({ display: 'inline-flex', alignItems: 'center', width: '13px', height: '13px', color: 'var(--color-green)', marginRight: '3px' });
       const accountHint = s.cloudflareAccount
-        ? `Account: ${s.cloudflareAccount.slice(0, 8)}…`
+        ? `Connected · Account ${s.cloudflareAccount.slice(0, 8)}…`
         : 'Connected';
-      cfSetting.setDesc(accountHint);
+      descEl.createSpan({ text: accountHint });
+
       // Reconnect is needed when the Cloudflare ↔ GitHub App authorization
       // is revoked (e.g. after deleting and recreating the repo).
       cfSetting.addButton((b) => {
@@ -70,7 +92,12 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
         });
       });
     } else {
-      cfSetting.setDesc('Not connected — required for Cloudflare Pages hosting');
+      const descEl = cfSetting.descEl;
+      descEl.addClass('nf-conn-desc');
+      const dot = descEl.createSpan({ cls: 'nf-status-dot disconnected' });
+      void dot;
+      descEl.createSpan({ text: 'Not connected — required for Cloudflare Pages hosting' });
+
       cfSetting.addButton((b) => {
         b.setButtonText('Connect');
         b.onClick(() => { tab.openCloudflareConnectFlow(); });
@@ -79,8 +106,6 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
 
     // Restore from vault registry (shown only when sites exist in registry but not in settings)
     void renderRestoreFromRegistry(tab, el);
-
-    // Reset is in the persistent footer below — removed from here to avoid duplication.
 }
 
 export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl: HTMLElement): void {

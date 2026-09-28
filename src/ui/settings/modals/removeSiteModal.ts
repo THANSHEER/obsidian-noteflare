@@ -102,6 +102,13 @@ export class RemoveSiteModal extends Modal {
               await gh.deleteSiteFolder(this.site.id, this.site.githubBranch || 'main');
             } catch (e) {
               console.warn('NoteFlare: could not delete GitHub site folder:', e);
+              // FIX: Surface this failure to the user — previously it was silently swallowed.
+              // The site is removed from local settings regardless, but the remote folder remains.
+              new Notice(
+                `Could not remove the site folder "sites/${this.site.id}" from GitHub. ` +
+                'Please delete it manually in your repository → Code tab → sites/ folder.',
+                12000,
+              );
             }
 
             // Step 3: Vault registry

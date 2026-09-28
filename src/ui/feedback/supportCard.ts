@@ -2,11 +2,16 @@ import { App, setIcon } from 'obsidian';
 import {
   GITHUB_ISSUES_URL,
   GITHUB_REPO_URL,
-  GITHUB_SPONSORS_URL,
   KOFI_URL,
 } from '../../core/constants';
 import { featureRequestFormUrl } from '../../api/geekstashApi';
 import { FeedbackModal } from './feedbackModal';
+import {
+  MERMAID_FLOW_PLUGIN_ID,
+  OMNICHAT_PLUGIN_ID,
+  openCommunityPlugin,
+} from '../communityPluginOpener';
+
 
 export interface SupportCardOptions {
   onOpenChangelog?: () => void;
@@ -14,8 +19,8 @@ export interface SupportCardOptions {
 
 /**
  * Renders the modern Support & Feedback card matching the design:
- * Top: Pill buttons for "Support the project", "GitHub Sponsors", and "Star on GitHub".
- * Divider: Subtle horizontal separator.
+ * Top: Pill buttons for official Ko-fi support and "Star on GitHub".
+ * Middle: Other Obsidian plugins ("Mermaid Flow", "OmniChat") opening inside Obsidian.
  * Bottom: Centered dot-separated links ("Give feedback", "Request a feature", "GitHub issues", "Changelog").
  */
 export function renderSupportCard(
@@ -25,35 +30,27 @@ export function renderSupportCard(
 ): HTMLElement {
   const card = container.createDiv({ cls: 'nf-support-card' });
 
-  // Top row: Pill buttons
+  // Top row: Pill buttons (Ko-fi sponsor and Star on GitHub)
   const pillsRow = card.createDiv({ cls: 'nf-support-pills' });
 
-  // Ko-fi / Support the project pill
-  const kofiBtn = pillsRow.createEl('a', {
-    cls: 'nf-support-pill nf-support-pill-kofi',
+  // Ko-fi official branded button (real Ko-fi image from their CDN)
+  const kofiLink = pillsRow.createEl('a', {
+    cls: 'nf-support-pill-kofi-img',
     href: KOFI_URL,
-    attr: { target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Support the project' },
+    attr: { target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Support the project on Ko-fi' },
   });
-  const kofiIcon = kofiBtn.createSpan({ cls: 'nf-pill-icon nf-cup-icon' });
-  setIcon(kofiIcon, 'coffee');
-  kofiBtn.createSpan({ text: 'Support the project' });
-  kofiBtn.addEventListener('click', (e) => {
+  kofiLink.createEl('img', {
+    attr: {
+      src: 'https://storage.ko-fi.com/cdn/kofi3.png?v=6',
+      alt: 'Buy Me a Coffee at ko-fi.com',
+      height: '36',
+      style: 'border:0px;height:36px;',
+      border: '0',
+    },
+  });
+  kofiLink.addEventListener('click', (e) => {
     e.preventDefault();
     window.open(KOFI_URL, '_blank');
-  });
-
-  // GitHub Sponsors pill
-  const sponsorBtn = pillsRow.createEl('a', {
-    cls: 'nf-support-pill nf-support-pill-sponsor',
-    href: GITHUB_SPONSORS_URL,
-    attr: { target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'GitHub Sponsors' },
-  });
-  const sponsorIcon = sponsorBtn.createSpan({ cls: 'nf-pill-icon nf-heart-icon' });
-  setIcon(sponsorIcon, 'heart');
-  sponsorBtn.createSpan({ text: 'GitHub Sponsors' });
-  sponsorBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    window.open(GITHUB_SPONSORS_URL, '_blank');
   });
 
   // Star on GitHub pill
@@ -68,6 +65,43 @@ export function renderSupportCard(
   starBtn.addEventListener('click', (e) => {
     e.preventDefault();
     window.open(GITHUB_REPO_URL, '_blank');
+  });
+
+  // Other Obsidian plugins section
+  const pluginsRow = card.createDiv({ cls: 'nf-support-plugins-row' });
+  pluginsRow.createSpan({
+    cls: 'nf-support-plugins-label',
+    text: 'Other plugins by the author:',
+  });
+
+  const pluginsContainer = pluginsRow.createDiv({ cls: 'nf-support-plugins-list' });
+
+  // 1. Mermaid Flow
+  const mermaidPill = pluginsContainer.createEl('a', {
+    cls: 'nf-plugin-pill',
+    href: `obsidian://show-plugin?id=${MERMAID_FLOW_PLUGIN_ID}`,
+    attr: { role: 'button', 'aria-label': 'Open in community plugins' },
+  });
+  const mermaidIcon = mermaidPill.createSpan({ cls: 'nf-pill-icon' });
+  setIcon(mermaidIcon, 'workflow');
+  mermaidPill.createSpan({ text: 'Mermaid Flow' });
+  mermaidPill.addEventListener('click', (e) => {
+    e.preventDefault();
+    openCommunityPlugin(app, MERMAID_FLOW_PLUGIN_ID);
+  });
+
+  // 2. OmniChat
+  const omniPill = pluginsContainer.createEl('a', {
+    cls: 'nf-plugin-pill',
+    href: `obsidian://show-plugin?id=${OMNICHAT_PLUGIN_ID}`,
+    attr: { role: 'button', 'aria-label': 'Open in community plugins' },
+  });
+  const omniIcon = omniPill.createSpan({ cls: 'nf-pill-icon' });
+  setIcon(omniIcon, 'bot');
+  omniPill.createSpan({ text: 'OmniChat' });
+  omniPill.addEventListener('click', (e) => {
+    e.preventDefault();
+    openCommunityPlugin(app, OMNICHAT_PLUGIN_ID);
   });
 
   // Divider

@@ -33,17 +33,117 @@ jobs:
       - name: Build Plugin
         run: npm run build
 
-      - name: Attest Build Provenance
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-path: 'main.js'
+      - name: Determine Version & Package Names
+        id: meta
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_NAME#v}"
+          PLUGIN_ID=$(node -p "try { require('./manifest.json').id } catch(e) { '' }")
+          if [ -z "$PLUGIN_ID" ]; then
+            PLUGIN_ID="${{ github.event.repository.name }}"
+          fi
+          if [[ "$PLUGIN_ID" != obsidian-* ]]; then
+            REPO_PKG_ID="obsidian-${PLUGIN_ID}"
+          else
+            REPO_PKG_ID="${PLUGIN_ID}"
+          fi
+          ZIP_NAME="${REPO_PKG_ID}-${VERSION}.zip"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "plugin_id=${PLUGIN_ID}" >> $GITHUB_OUTPUT
+          echo "repo_pkg_id=${REPO_PKG_ID}" >> $GITHUB_OUTPUT
+          echo "zip_name=${ZIP_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release and Upload Assets
+      - name: Package Release Zip & Compute SHA-256
+        run: |
+          ZIP_FILE="${{ steps.meta.outputs.zip_name }}"
+          PLUGIN_ID="${{ steps.meta.outputs.plugin_id }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          FILES_TO_PACK="main.js manifest.json"
+          if [ -f styles.css ]; then
+            FILES_TO_PACK="$FILES_TO_PACK styles.css"
+          fi
+          zip -j "$ZIP_FILE" $FILES_TO_PACK
+          sha256sum "$ZIP_FILE" > "${ZIP_FILE}.sha256"
+
+          # Also package plugin-id.zip (e.g. noteflare-1.2.3.zip) for maximum compatibility
+          LEGACY_ZIP="${PLUGIN_ID}-${VERSION}.zip"
+          if [ "$LEGACY_ZIP" != "$ZIP_FILE" ]; then
+            cp "$ZIP_FILE" "$LEGACY_ZIP"
+            sha256sum "$LEGACY_ZIP" > "${LEGACY_ZIP}.sha256"
+          fi
+          cp "$ZIP_FILE" "${PLUGIN_ID}.zip"
+          sha256sum "${PLUGIN_ID}.zip" > "${PLUGIN_ID}.zip.sha256"
+
+          echo "Generated Checksum:"
+          cat "${ZIP_FILE}.sha256"
+
+      - name: Extract release notes and title from CHANGELOG.md
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          export VERSION
+          python3 - <<'PY'
+          import os, re, sys
+          version = os.environ.get("VERSION", "")
+          title = f"v{version}"
+          notes = ""
+          if os.path.isfile("CHANGELOG.md"):
+              text = open("CHANGELOG.md", encoding="utf-8").read()
+              pattern = re.compile(r"^## \[?" + re.escape(version) + r"\]?.*?(?=^## \[?|\Z)", re.M | re.S)
+              match = pattern.search(text)
+              if match:
+                  lines = match.group(0).splitlines()
+                  while lines and lines[-1].strip() in ("", "---"):
+                      lines.pop()
+                  header_line = lines[0] if lines else ""
+                  parsed_title = re.sub(r"^#+\s*", "", header_line).strip()
+                  if parsed_title:
+                      title = parsed_title
+                  notes = "\n".join(lines).strip()
+          with open("release_notes.txt", "w", encoding="utf-8") as f:
+              f.write(notes + "\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"title={title}\n")
+          PY
+          {
+            echo 'notes<<EOF'
+            cat release_notes.txt
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Attest Build Provenance (Sigstore)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+            ${{ steps.meta.outputs.zip_name }}
+            ${{ steps.meta.outputs.zip_name }}.sha256
+            ${{ steps.meta.outputs.plugin_id }}-*.zip
+            ${{ steps.meta.outputs.plugin_id }}-*.zip.sha256
+            ${{ steps.meta.outputs.plugin_id }}.zip
+            ${{ steps.meta.outputs.plugin_id }}.zip.sha256
+
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ steps.changelog.outputs.title }}
+          body: ${{ steps.changelog.outputs.notes }}
           files: |
             main.js
             manifest.json
             styles.css
+            ${{ steps.meta.outputs.zip_name }}
+            ${{ steps.meta.outputs.zip_name }}.sha256
+            ${{ steps.meta.outputs.plugin_id }}-${{ steps.meta.outputs.version }}.zip
+            ${{ steps.meta.outputs.plugin_id }}-${{ steps.meta.outputs.version }}.zip.sha256
+            ${{ steps.meta.outputs.plugin_id }}.zip
+            ${{ steps.meta.outputs.plugin_id }}.zip.sha256
+          draft: false
+          prerelease: false
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

@@ -5429,7 +5429,7 @@ var UnpublishModal = class extends import_obsidian17.Modal {
   onOpen() {
     this.titleEl.setText("Unpublish your site?");
     this.contentEl.createEl("p", {
-      text: "Your site will go offline. Files in GitHub remain untouched \u2014 you can re-publish any time."
+      text: "Your site will go offline. Files in repository remain untouched \u2014 you can re-publish any time."
     });
     new import_obsidian17.Setting(this.contentEl).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => {
       b.setButtonText("Unpublish");
