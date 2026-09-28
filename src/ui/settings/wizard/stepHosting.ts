@@ -1,24 +1,28 @@
 import { Setting } from 'obsidian';
 import type { NoteFlareSettingsTab } from '../settingsTab';
-import { slugify, provisionSite } from '../modals/helpers';
+import { CloudflareApi } from '../../../api/cloudflareApi';
+import { buildCloudflareTokenUrl, slugify, provisionSite } from '../modals/helpers';
 import { createErrorEl, showError, hideError, busy, idle } from '../settingsHelpers';
 import { PathSuggestModal } from '../modals/pathSuggestModal';
 
+const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
+const CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
+
 export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): void {
   const heading = new Setting(el);
-  heading.setName('Set up your Cloud Engine Site');
+  heading.setName('Set up Cloudflare Pages & create your site');
   heading.setHeading();
 
   el.createEl('p', {
     cls: 'setting-item-description',
-    text: 'NoteFlare deploys your site instantly via the Cloud Worker API engine. No manual dashboard approval or GitHub App installation required!',
+    text: "NoteFlare publishes to Cloudflare Pages — a free global CDN with instant deploy controls. You'll need a free Cloudflare account.",
   });
 
   // ── Site name ─────────────────────────────────────────────────────────────
   let siteName = tab.pendingName || 'my-notes';
   new Setting(el)
     .setName('Site name')
-    .setDesc('Used for your live site address. Lowercase letters, numbers, and dashes.')
+    .setDesc('Used for your repository and site address. Lowercase letters, numbers, and dashes.')
     .addText((text) => {
       text.setPlaceholder('my-notes');
       text.setValue(siteName);
@@ -27,16 +31,17 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
       });
     });
 
-  // ── Master repo name (optional content backup) ───────────────────────────
+  // ── Master repo name ──────────────────────────────────────────────────────
   let masterRepo = tab.plugin.settings.masterRepository || 'noteflare-sites';
   new Setting(el)
-    .setName('GitHub repository name (Optional backup store)')
-    .setDesc('Optional private GitHub repository to keep a raw Markdown copy of your published content.')
+    .setName('GitHub repository name')
+    .setDesc('All your NoteFlare sites will live inside this single repository.')
     .addText((text) => {
       text.setPlaceholder('noteflare-sites');
       text.setValue(masterRepo);
       text.onChange((v) => {
         masterRepo = v.trim();
+        updateCfAppHint();
       });
     });
 
@@ -89,6 +94,55 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
   };
   renderPaths();
 
+  // ── Cloudflare credentials ────────────────────────────────────────────────
+  let cfToken = tab.plugin.settings.cloudflareToken;
+  let cfAccount = tab.plugin.settings.cloudflareAccount;
+
+  let cfAppHintEl: HTMLElement | null = null;
+  const updateCfAppHint = () => {
+    if (cfAppHintEl) {
+      cfAppHintEl.setText(
+        `Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || 'noteflare-sites'}`,
+      );
+    }
+  };
+
+  new Setting(el)
+    .setName('1. Create a Cloudflare API token')
+    .setDesc('Creates a token with Pages, Workers, and Account permissions pre-filled.')
+    .addButton((b) => {
+      b.setButtonText('Create Token ↗');
+      b.onClick(() => { window.open(CLOUDFLARE_TOKEN_URL, '_blank'); });
+    });
+
+  const cfAppSetting = new Setting(el)
+    .setName('2. Authorize Cloudflare on GitHub')
+    .setDesc(`Grant the "Cloudflare Workers and Pages" app access to: ${tab.plugin.settings.githubOwner}/${masterRepo || 'noteflare-sites'}`)
+    .addButton((b) => {
+      b.setButtonText('Authorize ↗');
+      b.onClick(() => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
+    });
+  cfAppHintEl = cfAppSetting.descEl;
+
+  new Setting(el)
+    .setName('Cloudflare API token')
+    .setDesc('Stored encrypted in your OS keychain.')
+    .addText((t) => {
+      t.setPlaceholder('Paste API token…');
+      t.inputEl.type = 'password';
+      t.setValue(cfToken);
+      t.onChange((v) => { cfToken = v.trim(); });
+    });
+
+  new Setting(el)
+    .setName('Cloudflare account ID')
+    .setDesc('Optional — detected automatically from your token.')
+    .addText((t) => {
+      t.setPlaceholder('Auto-detected');
+      t.setValue(cfAccount);
+      t.onChange((v) => { cfAccount = v.trim(); });
+    });
+
   const errorEl = createErrorEl(el);
 
   new Setting(el)
@@ -102,13 +156,21 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
         void (async () => {
           const nameSlug = slugify(siteName);
           if (!nameSlug) return showError(errorEl, 'Please enter a site name.');
+          if (!masterRepo.trim()) return showError(errorEl, 'Please enter a repository name.');
+          if (!cfToken) return showError(errorEl, 'Please paste your Cloudflare API token.');
           hideError(errorEl);
           busy(btn, 'Setting up…');
 
           try {
-            if (masterRepo.trim()) {
-              tab.plugin.settings.masterRepository = masterRepo.trim();
+            tab.plugin.settings.masterRepository = masterRepo.trim();
+
+            let accountId = cfAccount;
+            if (!accountId) {
+              busy(btn, 'Detecting Cloudflare account…');
+              accountId = await new CloudflareApi(cfToken, '').getAccountId();
             }
+            tab.plugin.settings.cloudflareToken = cfToken;
+            tab.plugin.settings.cloudflareAccount = accountId;
             await tab.plugin.saveSettings();
 
             busy(btn, 'Creating your site…');
@@ -116,7 +178,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
               tab.plugin,
               siteName,
               { publishScope: scope, publishPaths: paths },
-              'cloud-worker',
+              'cloudflare',
             );
             tab.plugin.settings.sites.push(site);
             tab.plugin.settings.activeSiteId = site.id;
@@ -126,7 +188,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
             tab.pendingName = siteName;
             tab.pendingScope = scope;
             tab.pendingPaths = paths;
-            tab.pendingProvider = 'cloud-worker';
+            tab.pendingProvider = 'cloudflare';
             tab.wizardStep = 'backup';
             tab.render();
           } catch (err: unknown) {

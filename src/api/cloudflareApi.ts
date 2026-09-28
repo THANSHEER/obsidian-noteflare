@@ -25,11 +25,26 @@ export class CloudflareApi {
     };
   }
 
+  private async ensureAccountId(): Promise<void> {
+    if (!this.accountId) {
+      this.accountId = await this.getAccountId();
+    }
+  }
+
   private async request<T>(
     path: string,
     method = 'GET',
     body?: Record<string, unknown>,
   ): Promise<T> {
+    if (path.startsWith('/accounts/') && !this.accountId && path !== '/accounts') {
+      try {
+        await this.ensureAccountId();
+      } catch (e) {
+        throw new Error('Please enter your Cloudflare Account ID (found on your Cloudflare dashboard overview).');
+      }
+      path = path.replace('/accounts//', `/accounts/${this.accountId}/`);
+    }
+
     try {
       const resp = await requestUrl({
         url: `${CF_API}${path}`,
