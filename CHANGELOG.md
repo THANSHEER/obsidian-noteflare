@@ -58,7 +58,7 @@ No breaking changes.
 ### Changed
 - Added `NoteFlare: Open setup wizard` command to the Obsidian Command Palette (`Ctrl/Cmd+P`).
 - Setup Wizard now launches automatically on initial install/activation if setup is not yet completed.
-- Updated README branding to use the official product logo SVG (`public/logo/logo.svg`).
+- Updated README branding to use the official product logo SVG (`public/logo/noteflare.svg`).
 
 ---
 
