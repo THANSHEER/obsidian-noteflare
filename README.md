@@ -30,18 +30,14 @@ With just a few clicks, convert your entire vault (or selected folders/notes) in
 
 ### 🎬 Introduction & Setup
 <div align="center">
-  <video src="public/assets/demo-intro.mp4" controls autoplay loop muted playsinline width="100%" style="border-radius: 8px;"></video>
+  <img src="public/assets/demo-intro.gif" alt="NoteFlare Intro Demo" width="100%" style="border-radius: 8px;" />
 </div>
 
 ### 🎬 Publishing Your Notes
 <div align="center">
-  <video src="public/assets/demo-publish.mp4" controls autoplay loop muted playsinline width="100%" style="border-radius: 8px;"></video>
+  <img src="public/assets/demo-publish.gif" alt="NoteFlare Publishing Demo" width="100%" style="border-radius: 8px;" />
 </div>
 
-### 🎬 Authorization & GitHub Setup Walkthrough
-<div align="center">
-  <video src="public/assets/demo-auth.mp4" controls autoplay loop muted playsinline width="100%" style="border-radius: 8px;"></video>
-</div>
 
 ---
 

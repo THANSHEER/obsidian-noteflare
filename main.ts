@@ -504,19 +504,19 @@ export default class NoteFlarePlugin extends Plugin {
     try {
       // Cloudflare sites have no GitHub Actions deploy.yml workflow —
       // skip that fetch and use the Cloudflare deployments API for status instead.
-      const isCloudflareSite = site.hostingProvider === 'cloudflare';
+      const isCloudflareSite = site.hostingProvider === 'cloudflare' || site.hostingProvider === 'cloud-worker';
       const [repoInfo, workflowRun, latestCommit] = await Promise.all([
         github.getRepoInfo(),
         isCloudflareSite ? Promise.resolve(null) : github.getLatestWorkflowRun('deploy.yml'),
         github.getLatestCommit(branch),
       ]);
 
-      let cfWorkflowStatus = workflowRun?.status ?? '';
-      let cfWorkflowConclusion = workflowRun?.conclusion ?? '';
-      let cfWorkflowUrl = workflowRun?.htmlUrl ?? '';
-      let cfWorkflowUpdatedAt = workflowRun?.updatedAt ?? '';
+      let cfWorkflowStatus = workflowRun?.status ?? (site.isPublished ? 'completed' : '');
+      let cfWorkflowConclusion = workflowRun?.conclusion ?? (site.isPublished ? 'success' : '');
+      let cfWorkflowUrl = workflowRun?.htmlUrl ?? (site.siteUrl ? `https://${site.siteUrl.replace(/^https?:\/\//, '')}` : '');
+      let cfWorkflowUpdatedAt = workflowRun?.updatedAt ?? site.lastPublished;
 
-      if (isCloudflareSite && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
+      if (site.hostingProvider === 'cloudflare' && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
         try {
           const cf = new CloudflareApi(this.settings.cloudflareToken, this.settings.cloudflareAccount);
           const cfDeployments = await cf.listDeployments(site.cloudflareProject);

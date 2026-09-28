@@ -150,6 +150,30 @@ export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl
         t.onChange((v) => { cfAccount = v.trim(); });
       });
 
+    const cfVideoContainer = containerEl.createDiv({ cls: 'noteflare-video-guide' });
+    cfVideoContainer.setCssStyles({
+      marginTop: '12px',
+      marginBottom: '16px',
+    });
+
+    const cfGifPath = tab.app.vault.adapter.getResourcePath(
+      `${tab.app.vault.configDir}/plugins/obsidian-noteflare/public/assets/cloudfalretoekncreation.gif`,
+    );
+
+    const cfGifEl = cfVideoContainer.createEl('img', {
+      attr: {
+        src: cfGifPath,
+        alt: 'Cloudflare token creation guide',
+      },
+    });
+    cfGifEl.setCssStyles({
+      width: '100%',
+      borderRadius: '8px',
+      display: 'block',
+    });
+
+
+
     const errorEl = createErrorEl(containerEl);
 
     new Setting(containerEl)

@@ -4400,6 +4400,25 @@ function renderStepGitHub(tab, el) {
       tokenValue = v.trim();
     });
   });
+  const videoContainer = el.createDiv({ cls: "noteflare-video-guide" });
+  videoContainer.setCssStyles({
+    marginTop: "12px",
+    marginBottom: "16px"
+  });
+  const gifPath = tab.app.vault.adapter.getResourcePath(
+    `${tab.app.vault.configDir}/plugins/obsidian-noteflare/public/assets/githubtokencreation.gif`
+  );
+  const gifEl = videoContainer.createEl("img", {
+    attr: {
+      src: gifPath,
+      alt: "GitHub token creation guide"
+    }
+  });
+  gifEl.setCssStyles({
+    width: "100%",
+    borderRadius: "8px",
+    display: "block"
+  });
   const errorEl = createErrorEl(el);
   new import_obsidian7.Setting(el).addButton((btn) => {
     btn.setButtonText("Verify & continue").setCta();
@@ -4639,6 +4658,25 @@ function renderStepHosting(tab, el) {
     t.onChange((v) => {
       cfAccount = v.trim();
     });
+  });
+  const cfVideoContainer = el.createDiv({ cls: "noteflare-video-guide" });
+  cfVideoContainer.setCssStyles({
+    marginTop: "12px",
+    marginBottom: "16px"
+  });
+  const cfGifPath = tab.app.vault.adapter.getResourcePath(
+    `${tab.app.vault.configDir}/plugins/obsidian-noteflare/public/assets/cloudfalretoekncreation.gif`
+  );
+  const cfGifEl = cfVideoContainer.createEl("img", {
+    attr: {
+      src: cfGifPath,
+      alt: "Cloudflare token creation guide"
+    }
+  });
+  cfGifEl.setCssStyles({
+    width: "100%",
+    borderRadius: "8px",
+    display: "block"
   });
   const errorEl = createErrorEl(el);
   new import_obsidian9.Setting(el).addButton((back) => {
@@ -5090,6 +5128,25 @@ function openCloudflareConnectFlow(tab, containerEl) {
     t.onChange((v) => {
       cfAccount = v.trim();
     });
+  });
+  const cfVideoContainer = containerEl.createDiv({ cls: "noteflare-video-guide" });
+  cfVideoContainer.setCssStyles({
+    marginTop: "12px",
+    marginBottom: "16px"
+  });
+  const cfGifPath = tab.app.vault.adapter.getResourcePath(
+    `${tab.app.vault.configDir}/plugins/obsidian-noteflare/public/assets/cloudfalretoekncreation.gif`
+  );
+  const cfGifEl = cfVideoContainer.createEl("img", {
+    attr: {
+      src: cfGifPath,
+      alt: "Cloudflare token creation guide"
+    }
+  });
+  cfGifEl.setCssStyles({
+    width: "100%",
+    borderRadius: "8px",
+    display: "block"
   });
   const errorEl = createErrorEl(containerEl);
   new import_obsidian13.Setting(containerEl).addButton((back) => {
@@ -7584,17 +7641,17 @@ var NoteFlarePlugin = class extends import_obsidian30.Plugin {
     };
     this.refreshView();
     try {
-      const isCloudflareSite = site.hostingProvider === "cloudflare";
+      const isCloudflareSite = site.hostingProvider === "cloudflare" || site.hostingProvider === "cloud-worker";
       const [repoInfo, workflowRun, latestCommit] = await Promise.all([
         github.getRepoInfo(),
         isCloudflareSite ? Promise.resolve(null) : github.getLatestWorkflowRun("deploy.yml"),
         github.getLatestCommit(branch)
       ]);
-      let cfWorkflowStatus = (_c = workflowRun == null ? void 0 : workflowRun.status) != null ? _c : "";
-      let cfWorkflowConclusion = (_d = workflowRun == null ? void 0 : workflowRun.conclusion) != null ? _d : "";
-      let cfWorkflowUrl = (_e = workflowRun == null ? void 0 : workflowRun.htmlUrl) != null ? _e : "";
-      let cfWorkflowUpdatedAt = (_f = workflowRun == null ? void 0 : workflowRun.updatedAt) != null ? _f : "";
-      if (isCloudflareSite && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
+      let cfWorkflowStatus = (_c = workflowRun == null ? void 0 : workflowRun.status) != null ? _c : site.isPublished ? "completed" : "";
+      let cfWorkflowConclusion = (_d = workflowRun == null ? void 0 : workflowRun.conclusion) != null ? _d : site.isPublished ? "success" : "";
+      let cfWorkflowUrl = (_e = workflowRun == null ? void 0 : workflowRun.htmlUrl) != null ? _e : site.siteUrl ? `https://${site.siteUrl.replace(/^https?:\/\//, "")}` : "";
+      let cfWorkflowUpdatedAt = (_f = workflowRun == null ? void 0 : workflowRun.updatedAt) != null ? _f : site.lastPublished;
+      if (site.hostingProvider === "cloudflare" && this.settings.cloudflareToken && this.settings.cloudflareAccount && site.cloudflareProject) {
         try {
           const cf = new CloudflareApi(this.settings.cloudflareToken, this.settings.cloudflareAccount);
           const cfDeployments = await cf.listDeployments(site.cloudflareProject);

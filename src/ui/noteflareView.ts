@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon, Setting, Notice } from 'obsidian';
+import { ItemView, WorkspaceLeaf, setIcon, Setting } from 'obsidian';
 import { AddSiteModal, UnpublishModal, EditSiteModal, RemoveSiteModal, PathSuggestModal } from './settings/modals';
 import type NoteFlarePlugin from '../../main';
 import type { LiveSiteStatus } from '../../main';
