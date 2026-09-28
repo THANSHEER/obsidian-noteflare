@@ -5017,6 +5017,14 @@ function renderConnectionsSection(tab, el) {
     iconSpan.setCssStyles({ display: "inline-flex", alignItems: "center", width: "13px", height: "13px", color: "var(--color-green)", marginRight: "3px" });
     const accountHint = s.cloudflareAccount ? `Connected \xB7 Account ${s.cloudflareAccount.slice(0, 8)}\u2026` : "Connected";
     descEl.createSpan({ text: accountHint });
+    const CLOUDFLARE_APP_URL3 = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
+    cfSetting.addButton((b) => {
+      b.setButtonText("Authorize GitHub App \u2197");
+      b.setTooltip("Authorize Cloudflare on GitHub if using legacy Cloudflare Pages");
+      b.onClick(() => {
+        window.open(CLOUDFLARE_APP_URL3, "_blank");
+      });
+    });
     cfSetting.addButton((b) => {
       b.setButtonText("Disconnect");
       b.buttonEl.addClass("mod-warning");
@@ -6374,19 +6382,6 @@ function renderFeedbackSection(tab, el) {
     toggle.onChange(async (val) => {
       tab.plugin.settings.showWhatsNewOnUpdate = val;
       await tab.plugin.saveSettings();
-    });
-  });
-  new import_obsidian26.Setting(el).setName("Other plugins by the author").setDesc("Explore Mermaid Flow and OmniChat directly inside Obsidian Community Plugins.").addButton((btn) => {
-    btn.setButtonText("Mermaid Flow");
-    btn.setTooltip("Visual drag-and-drop Mermaid flowchart editor");
-    btn.onClick(() => {
-      openCommunityPlugin(tab.app, MERMAID_FLOW_PLUGIN_ID);
-    });
-  }).addButton((btn) => {
-    btn.setButtonText("OmniChat");
-    btn.setTooltip("Embedded AI browser for ChatGPT, Claude, Gemini & more");
-    btn.onClick(() => {
-      openCommunityPlugin(tab.app, OMNICHAT_PLUGIN_ID);
     });
   });
   new import_obsidian26.Setting(el).setName("Release notes").setDesc("View changelog and what\u2019s new in NoteFlare.").addButton((btn) => {

@@ -70,6 +70,12 @@ export function renderConnectionsSection(tab: NoteFlareSettingsTab, el: HTMLElem
         : 'Connected';
       descEl.createSpan({ text: accountHint });
 
+      const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
+      cfSetting.addButton((b) => {
+        b.setButtonText('Authorize GitHub App ↗');
+        b.setTooltip('Authorize Cloudflare on GitHub if using legacy Cloudflare Pages');
+        b.onClick(() => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
+      });
       cfSetting.addButton((b) => {
         b.setButtonText('Disconnect');
         b.buttonEl.addClass('mod-warning');

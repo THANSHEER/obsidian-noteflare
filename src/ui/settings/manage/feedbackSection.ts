@@ -2,11 +2,6 @@ import { Setting } from 'obsidian';
 import type { NoteFlareSettingsTab } from '../settingsTab';
 import { renderSupportCard } from '../../feedback/supportCard';
 import { WhatsNewModal } from '../../feedback/whatsNewModal';
-import {
-  MERMAID_FLOW_PLUGIN_ID,
-  OMNICHAT_PLUGIN_ID,
-  openCommunityPlugin,
-} from '../../communityPluginOpener';
 
 export function renderFeedbackSection(tab: NoteFlareSettingsTab, el: HTMLElement): void {
   const heading = new Setting(el);
@@ -21,24 +16,6 @@ export function renderFeedbackSection(tab: NoteFlareSettingsTab, el: HTMLElement
       toggle.onChange(async (val) => {
         tab.plugin.settings.showWhatsNewOnUpdate = val;
         await tab.plugin.saveSettings();
-      });
-    });
-
-  new Setting(el)
-    .setName('Other plugins by the author')
-    .setDesc('Explore Mermaid Flow and OmniChat directly inside Obsidian Community Plugins.')
-    .addButton((btn) => {
-      btn.setButtonText('Mermaid Flow');
-      btn.setTooltip('Visual drag-and-drop Mermaid flowchart editor');
-      btn.onClick(() => {
-        openCommunityPlugin(tab.app, MERMAID_FLOW_PLUGIN_ID);
-      });
-    })
-    .addButton((btn) => {
-      btn.setButtonText('OmniChat');
-      btn.setTooltip('Embedded AI browser for ChatGPT, Claude, Gemini & more');
-      btn.onClick(() => {
-        openCommunityPlugin(tab.app, OMNICHAT_PLUGIN_ID);
       });
     });
 
