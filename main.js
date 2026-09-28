@@ -4516,13 +4516,14 @@ var PathSuggestModal = class extends import_obsidian8.FuzzySuggestModal {
 
 // src/ui/settings/wizard/stepHosting.ts
 var CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
+var CLOUDFLARE_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
 function renderStepHosting(tab, el) {
   const heading = new import_obsidian9.Setting(el);
-  heading.setName("Set up Cloudflare Pages & create your site");
+  heading.setName("Set up your site & hosting");
   heading.setHeading();
   el.createEl("p", {
     cls: "setting-item-description",
-    text: "NoteFlare publishes to Cloudflare Pages \u2014 a free global CDN with instant deploy controls."
+    text: "NoteFlare deploys your site using Cloudflare Workers (1-Click API upload) or Cloudflare Pages."
   });
   let siteName = tab.pendingName || "my-notes";
   new import_obsidian9.Setting(el).setName("Site name").setDesc("Used for your repository and site address. Lowercase letters, numbers, and dashes.").addText((text) => {
@@ -4532,6 +4533,33 @@ function renderStepHosting(tab, el) {
       siteName = v;
     });
   });
+  let hostingProvider = tab.pendingProvider || "cloud-worker";
+  const hostingSetting = new import_obsidian9.Setting(el).setName("Hosting engine").setDesc("Cloudflare Workers deploys instantly via API (no GitHub authorization required).").addDropdown((d) => {
+    d.addOption("cloud-worker", "Cloudflare Workers (Recommended \u2014 1-Click Upload)");
+    d.addOption("cloudflare", "Cloudflare Pages (Legacy Git Integration)");
+    d.setValue(hostingProvider);
+    d.onChange((v) => {
+      hostingProvider = v;
+      tab.pendingProvider = hostingProvider;
+      renderPagesAuthHint();
+    });
+  });
+  const pagesAuthHintContainer = el.createDiv();
+  const renderPagesAuthHint = () => {
+    pagesAuthHintContainer.empty();
+    if (hostingProvider === "cloudflare") {
+      const hintP = pagesAuthHintContainer.createEl("p", { cls: "setting-item-description" });
+      hintP.setCssStyles({ marginTop: "4px", marginBottom: "8px" });
+      hintP.appendText("First time using Cloudflare Pages with GitHub? ");
+      hintP.createEl("a", {
+        text: "Authorize Cloudflare on GitHub \u2197",
+        href: CLOUDFLARE_APP_URL,
+        attr: { target: "_blank", rel: "noopener" }
+      });
+    }
+  };
+  renderPagesAuthHint();
+  void hostingSetting;
   let masterRepo = tab.plugin.settings.masterRepository || "noteflare-sites";
   new import_obsidian9.Setting(el).setName("GitHub repository name").setDesc("All your NoteFlare sites will live inside this single repository.").addText((text) => {
     text.setPlaceholder("noteflare-sites");
@@ -4644,7 +4672,7 @@ function renderStepHosting(tab, el) {
             tab.plugin,
             siteName,
             { publishScope: scope, publishPaths: paths },
-            "cloudflare"
+            hostingProvider
           );
           tab.plugin.settings.sites.push(site);
           tab.plugin.settings.activeSiteId = site.id;
@@ -4653,7 +4681,7 @@ function renderStepHosting(tab, el) {
           tab.pendingName = siteName;
           tab.pendingScope = scope;
           tab.pendingPaths = paths;
-          tab.pendingProvider = "cloudflare";
+          tab.pendingProvider = hostingProvider;
           tab.wizardStep = "backup";
           tab.render();
         } catch (err) {
@@ -5028,12 +5056,19 @@ function openCloudflareConnectFlow(tab, containerEl) {
   const cfSection = containerEl.createDiv();
   let cfToken = "";
   let cfAccount = "";
+  const CLOUDFLARE_APP_URL3 = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
   const cfTokenSetting = new import_obsidian13.Setting(cfSection).setName("Cloudflare API token");
   cfTokenSetting.descEl.appendText("Pre-filled permissions for Pages & Workers. ");
   cfTokenSetting.descEl.createEl("a", {
     text: "Create token \u2197",
     href: CLOUDFLARE_TOKEN_URL2,
     attr: { target: "_blank", rel: "noopener" }
+  });
+  cfTokenSetting.descEl.appendText(" \xB7 ");
+  cfTokenSetting.descEl.createEl("a", {
+    text: "Authorize Pages App \u2197",
+    href: CLOUDFLARE_APP_URL3,
+    attr: { target: "_blank", rel: "noopener", title: "One-time authorization for legacy Cloudflare Pages" }
   });
   cfTokenSetting.addText((t) => {
     t.setPlaceholder("Paste API token\u2026");
@@ -6516,7 +6551,7 @@ var StatusBar = class {
 // src/ui/noteflareView.ts
 var import_obsidian28 = require("obsidian");
 var VIEW_TYPE_NOTEFLARE = "noteflare-panel";
-var CLOUDFLARE_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
+var CLOUDFLARE_APP_URL2 = "https://github.com/apps/cloudflare-workers-and-pages/installations/new";
 function relativeTime(iso) {
   if (!iso) return "";
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -6616,7 +6651,7 @@ var NoteFlareView = class extends import_obsidian28.ItemView {
       });
       const reconnectBtn = warnBanner.createEl("button", { text: "Re-authorize Cloudflare \u2197", cls: "mod-cta" });
       reconnectBtn.addEventListener("click", () => {
-        window.open(CLOUDFLARE_APP_URL, "_blank");
+        window.open(CLOUDFLARE_APP_URL2, "_blank");
       });
     }
     this.renderPublishScope(root, site);

@@ -116,12 +116,19 @@ export function openCloudflareConnectFlow(tab: NoteFlareSettingsTab, containerEl
     let cfToken = '';
     let cfAccount = '';
 
+    const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
     const cfTokenSetting = new Setting(cfSection).setName('Cloudflare API token');
     cfTokenSetting.descEl.appendText('Pre-filled permissions for Pages & Workers. ');
     cfTokenSetting.descEl.createEl('a', {
       text: 'Create token ↗',
       href: CLOUDFLARE_TOKEN_URL,
       attr: { target: '_blank', rel: 'noopener' },
+    });
+    cfTokenSetting.descEl.appendText(' · ');
+    cfTokenSetting.descEl.createEl('a', {
+      text: 'Authorize Pages App ↗',
+      href: CLOUDFLARE_APP_URL,
+      attr: { target: '_blank', rel: 'noopener', title: 'One-time authorization for legacy Cloudflare Pages' },
     });
     cfTokenSetting.addText((t) => {
       t.setPlaceholder('Paste API token…');

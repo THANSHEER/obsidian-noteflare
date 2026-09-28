@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/logo/logo.svg" alt="NoteFlare Logo" width="140" />
+  <img src="public/logo/noteflare.svg" alt="NoteFlare Logo" width="140" />
 
   # NoteFlare for Obsidian
 
@@ -22,7 +22,7 @@
 
 **NoteFlare** is a desktop plugin for [Obsidian](https://obsidian.md/) that lets you publish and backup your notes directly from Obsidian. No terminal, no manual Git commands, no complex server management required.
 
-With just a few clicks, convert your entire vault (or selected folders/notes) into a fast, public website hosted on **Cloudflare Pages**, or set up automated private backups.
+With just a few clicks, convert your entire vault (or selected folders/notes) into a fast, public website hosted on **Cloudflare Workers** (1-Click API Upload, zero GitHub authorization needed) or **Cloudflare Pages** (legacy Git integration).
 
 ---
 
@@ -36,6 +36,11 @@ With just a few clicks, convert your entire vault (or selected folders/notes) in
 ### 🎬 Publishing Your Notes
 <div align="center">
   <video src="public/assets/demo-publish.mp4" controls autoplay loop muted playsinline width="100%" style="border-radius: 8px;"></video>
+</div>
+
+### 🎬 Authorization & GitHub Setup Walkthrough
+<div align="center">
+  <video src="public/assets/demo-auth.mp4" controls autoplay loop muted playsinline width="100%" style="border-radius: 8px;"></video>
 </div>
 
 ---
@@ -52,47 +57,44 @@ Publishing your digital garden with NoteFlare is straightforward. Here is how to
 ### Step 2: Complete the Setup Wizard
 1. Open **Settings** > **NoteFlare** (or press `Cmd/Ctrl + P` and search `NoteFlare: Open setup wizard`).
 2. **Connect Accounts:**
-   - **GitHub Personal Access Token:** Click the link in the wizard to generate a fine-grained or classic GitHub token with repository permissions.
-   - **Cloudflare Account ID & API Token:** Obtain your Account ID and Pages API token from your Cloudflare dashboard.
+   - **GitHub Personal Access Token:** Generate a token with `repo` permissions.
+   - **Cloudflare API Token:** Obtain your API token from Cloudflare.
 3. Save your tokens securely into system storage.
 
 ### Step 3: Configure Your Site
 1. Select **Publish Site** mode in the wizard.
-2. Enter your **Site Name** (e.g., `my-digital-garden`).
-3. Choose your **Scope**:
+2. Choose your **Hosting Engine**:
+   - **Cloudflare Workers (Recommended)**: 1-Click direct upload — **zero GitHub App authorization required**.
+   - **Cloudflare Pages (Legacy)**: Git-backed deployment (*requires one-time GitHub App authorization*).
+3. Choose your **Publish Scope**:
    - **Whole Vault**: Publish all notes.
-   - **Folder**: Publish only notes inside a selected folder (e.g., `Published/`).
-   - **Selected File**: Publish a specific note.
+   - **Folder / Selected Files**: Publish only selected paths.
 4. Click **Create & Launch Site**.
 
 ### Step 4: Publish & View Your Live Site
 1. Click the **NoteFlare** icon in the Obsidian ribbon or sidebar panel.
 2. Click **Publish Now**.
-3. NoteFlare processes your Markdown, resolves `[[wikilinks]]` & images, and deploys to Cloudflare Pages.
-4. Once completed, your live URL (e.g., `https://my-digital-garden.pages.dev`) will appear in the status panel. Click to view your site!
-
-### Step 5: Updating Your Site
-- Whenever you make edits in Obsidian, open the NoteFlare panel and click **Publish Now** to push instant updates.
-- Enable **Automatic Background Publish** if you want edits synced automatically.
+3. NoteFlare packages your Markdown, resolves `[[wikilinks]]` & images, and deploys directly.
+4. Your live URL will appear in the status panel. Click to view your live site!
 
 ---
 
 ## Key Features
 
-### 🚀 One-Click Publishing
-Turn notes into a public website instantly. NoteFlare structures Markdown, resolves Obsidian `[[wikilinks]]`, tags, and attachments automatically.
+### 🚀 1-Click Cloudflare Workers Publishing
+Publish directly via Cloudflare API. **No GitHub App authorization, webhooks, or manual approval steps required!**
 
-### ⚡ Cloudflare Pages Hosting
-Built and served on Cloudflare Pages using [mdgarden](https://www.npmjs.com/package/mdgarden) static site generator for global CDN speed.
+### ⚡ Global CDN Speed
+Built and served on Cloudflare's edge network using the [mdgarden](https://www.npmjs.com/package/mdgarden) static site generator.
 
 ### 🔒 Private Local-Authoritative Backup
 Sync your vault root to a private GitHub repository on a schedule or automatically after edits.
 
 ### 🌐 Multi-Site Support
-Publish multiple separate websites from one vault with independent scopes and domains.
+Publish multiple separate digital gardens from one vault with independent scopes and domains.
 
 ### 🛡️ Native Keychain Security
-Your GitHub and Cloudflare tokens are encrypted using your Operating System's native Keychain.
+Your API tokens are encrypted using your Operating System's native Keychain.
 
 ---
 

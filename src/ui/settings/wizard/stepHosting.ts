@@ -4,17 +4,19 @@ import { CloudflareApi } from '../../../api/cloudflareApi';
 import { buildCloudflareTokenUrl, slugify, provisionSite } from '../modals/helpers';
 import { createErrorEl, showError, hideError, busy, idle } from '../settingsHelpers';
 import { PathSuggestModal } from '../modals/pathSuggestModal';
+import { SiteProfile } from '../../../core/types';
 
 const CLOUDFLARE_TOKEN_URL = buildCloudflareTokenUrl();
+const CLOUDFLARE_APP_URL = 'https://github.com/apps/cloudflare-workers-and-pages/installations/new';
 
 export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): void {
   const heading = new Setting(el);
-  heading.setName('Set up Cloudflare Pages & create your site');
+  heading.setName('Set up your site & hosting');
   heading.setHeading();
 
   el.createEl('p', {
     cls: 'setting-item-description',
-    text: "NoteFlare publishes to Cloudflare Pages — a free global CDN with instant deploy controls.",
+    text: 'NoteFlare deploys your site using Cloudflare Workers (1-Click API upload) or Cloudflare Pages.',
   });
 
   // ── Site name ─────────────────────────────────────────────────────────────
@@ -29,6 +31,39 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
         siteName = v;
       });
     });
+
+  // ── Hosting Engine selection ──────────────────────────────────────────────
+  let hostingProvider: SiteProfile['hostingProvider'] = tab.pendingProvider || 'cloud-worker';
+  const hostingSetting = new Setting(el)
+    .setName('Hosting engine')
+    .setDesc('Cloudflare Workers deploys instantly via API (no GitHub authorization required).')
+    .addDropdown((d) => {
+      d.addOption('cloud-worker', 'Cloudflare Workers (Recommended — 1-Click Upload)');
+      d.addOption('cloudflare', 'Cloudflare Pages (Legacy Git Integration)');
+      d.setValue(hostingProvider);
+      d.onChange((v) => {
+        hostingProvider = v as SiteProfile['hostingProvider'];
+        tab.pendingProvider = hostingProvider;
+        renderPagesAuthHint();
+      });
+    });
+
+  const pagesAuthHintContainer = el.createDiv();
+  const renderPagesAuthHint = () => {
+    pagesAuthHintContainer.empty();
+    if (hostingProvider === 'cloudflare') {
+      const hintP = pagesAuthHintContainer.createEl('p', { cls: 'setting-item-description' });
+      hintP.setCssStyles({ marginTop: '4px', marginBottom: '8px' });
+      hintP.appendText('First time using Cloudflare Pages with GitHub? ');
+      hintP.createEl('a', {
+        text: 'Authorize Cloudflare on GitHub ↗',
+        href: CLOUDFLARE_APP_URL,
+        attr: { target: '_blank', rel: 'noopener' },
+      });
+    }
+  };
+  renderPagesAuthHint();
+  void hostingSetting;
 
   // ── Master repo name ──────────────────────────────────────────────────────
   let masterRepo = tab.plugin.settings.masterRepository || 'noteflare-sites';
@@ -92,7 +127,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
   };
   renderPaths();
 
-  // ── Cloudflare credentials (combined link + token input, matching GitHub token pattern) ──
+  // ── Cloudflare credentials (combined link + token input) ─────────────────
   let cfToken = tab.plugin.settings.cloudflareToken;
   let cfAccount = tab.plugin.settings.cloudflareAccount;
 
@@ -154,7 +189,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
               tab.plugin,
               siteName,
               { publishScope: scope, publishPaths: paths },
-              'cloudflare',
+              hostingProvider,
             );
             tab.plugin.settings.sites.push(site);
             tab.plugin.settings.activeSiteId = site.id;
@@ -164,7 +199,7 @@ export function renderStepHosting(tab: NoteFlareSettingsTab, el: HTMLElement): v
             tab.pendingName = siteName;
             tab.pendingScope = scope;
             tab.pendingPaths = paths;
-            tab.pendingProvider = 'cloudflare';
+            tab.pendingProvider = hostingProvider;
             tab.wizardStep = 'backup';
             tab.render();
           } catch (err: unknown) {
