@@ -12,7 +12,7 @@ import { VaultRegistry } from './src/core/vaultRegistry';
 import { GitHubApi } from './src/api/githubApi';
 import { CloudflareApi } from './src/api/cloudflareApi';
 import { GeekstashApi } from './src/api/geekstashApi';
-import { UninstallFeedbackModal, WhatsNewModal } from './src/ui/feedback';
+import { WhatsNewModal } from './src/ui/feedback';
 
 export interface LiveSiteStatus {
   loading: boolean;
@@ -110,7 +110,7 @@ export default class NoteFlarePlugin extends Plugin {
     this.addCommand({
       id: 'view-changelog',
       name: 'View changelog',
-      callback: () => new WhatsNewModal(this.app, this.manifest.version, null).open(),
+      callback: () => new WhatsNewModal(this.app, this.manifest.version, null, this).open(),
     });
 
     this.addSettingTab(new NoteFlareSettingsTab(this.app, this));
@@ -127,15 +127,10 @@ export default class NoteFlarePlugin extends Plugin {
   }
 
   onunload(): void {
-    // Obsidian does not provide a dedicated uninstall callback here, so this runs
-    // on plugin unload/disable while the workspace is still interactively open.
-    // Skip during app quit / vault switch when a modal would be noisy or invisible.
-    if (!this.app.workspace.layoutReady) return;
-    try {
-      new UninstallFeedbackModal(this.app).open();
-    } catch (e) {
-      console.warn('NoteFlare: could not open uninstall feedback:', e);
-    }
+    // NOTE: Obsidian calls onunload on every plugin DISABLE (not just uninstall),
+    // so we cannot show a modal here — it would appear every time the user
+    // toggles the plugin off. There is no separate "onUninstall" callback in the
+    // Obsidian API, so the UninstallFeedbackModal has been removed from this hook.
   }
 
   /** Show What's New when manifest.version differs from the last acknowledged version. */
@@ -161,6 +156,11 @@ export default class NoteFlarePlugin extends Plugin {
     this.settings.lastSeenVersion = current;
     await this.saveSettings();
 
+    // Skip showing the release notes modal if user disabled it in settings
+    if (this.settings.showWhatsNewOnUpdate === false) {
+      return;
+    }
+
     let release: Awaited<ReturnType<typeof GeekstashApi.fetchReleaseNotes>> = null;
     try {
       release = await GeekstashApi.fetchReleaseNotes(current);
@@ -168,7 +168,7 @@ export default class NoteFlarePlugin extends Plugin {
       console.warn('NoteFlare: could not fetch release notes:', e);
     }
 
-    new WhatsNewModal(this.app, current, release).open();
+    new WhatsNewModal(this.app, current, release, this).open();
   }
 
   /** The currently-selected site, or the first one, or null when none exist. */
@@ -244,6 +244,11 @@ export default class NoteFlarePlugin extends Plugin {
           ? `Backup complete · ${result.updated} file${result.updated === 1 ? '' : 's'} updated`
           : 'Backup is already up to date';
         new Notice(message, 5000);
+        // FIX: Surface any file-skip warnings so users know the backup is incomplete.
+        const warnings = result.errors.filter(e => e.startsWith('Warning:'));
+        for (const w of warnings) {
+          new Notice(w, 10000);
+        }
       }
     } catch (error: unknown) {
       const message = this.toUserMessage(error, 'Backup failed.');
@@ -646,7 +651,7 @@ function migrateSettings(
       let hostingProvider = s.hostingProvider as SiteProfile['hostingProvider'] | undefined;
       if (!hostingProvider) {
         const legacyTarget = s.deployTarget as string | undefined;
-        hostingProvider = legacyTarget === 'cloudflare' ? 'cloudflare' : 'github-pages';
+        hostingProvider = legacyTarget === 'cloudflare' ? 'cloudflare' : 'cloud-worker';
       }
 
       const { deployTarget: _dt, ...rest } = s;

@@ -124,6 +124,37 @@ describe('Publisher and Error Recovery Tests', () => {
     expect(result.errors.length).toBe(0);
   });
 
+  it('should publish successfully via CloudWorkerApi when hostingProvider is cloud-worker', async () => {
+    site.hostingProvider = 'cloud-worker';
+
+    mockedRequestUrl.mockImplementation((options: any) => {
+      const url = options.url;
+      const method = options.method || 'GET';
+
+      if (url.includes('/noteflare/publish') && method === 'POST') {
+        return Promise.resolve(
+          mockNetworkResponse(200, {
+            success: true,
+            siteUrl: 'https://test-site.noteflare.workers.dev',
+            noteCount: 1,
+            uploaded: 1,
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unmocked request: ${method} ${url}`));
+    });
+
+    const publisher = new Publisher(settings, site, app, (msg) => {
+      progressMsgs.push(msg);
+    });
+
+    const result = await publisher.publish();
+    expect(result.success).toBe(true);
+    expect(site.siteUrl).toBe('https://test-site.noteflare.workers.dev');
+    expect(site.isPublished).toBe(true);
+  });
+
   it('should recreate repository and publish successfully if GitHub repository is deleted', async () => {
     let createRepoCalled = false;
 

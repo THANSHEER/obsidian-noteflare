@@ -22,7 +22,7 @@ export class NoteFlareSettingsTab extends PluginSettingTab {
   public pendingName = '';
   public pendingScope: 'vault' | 'selected' = 'vault';
   public pendingPaths: string[] = [];
-  public pendingProvider: 'github-pages' | 'cloudflare' | 'netlify' | 'vercel' = 'cloudflare';
+  public pendingProvider: import('../../core/types').SiteProfile['hostingProvider'] = 'cloud-worker';
 
   constructor(app: App, plugin: NoteFlarePlugin) {
     super(app, plugin);
@@ -32,6 +32,10 @@ export class NoteFlareSettingsTab extends PluginSettingTab {
 
   public getInitialWizardStep(): SetupStep {
     const s = this.plugin.settings;
+    // FIX: Jump to the correct step based on what's already configured.
+    // Previously, having GitHub creds always sent the user to 'hosting' even
+    // when Cloudflare was already set, forcing unnecessary token re-entry.
+    if (s.githubToken && s.githubOwner && s.cloudflareToken) return 'backup';
     if (s.githubToken && s.githubOwner) return 'hosting';
     return 'github';
   }
@@ -120,7 +124,7 @@ export class NoteFlareSettingsTab extends PluginSettingTab {
           this.pendingName = '';
           this.pendingScope = 'vault';
           this.pendingPaths = [];
-          this.pendingProvider = 'cloudflare';
+          this.pendingProvider = 'cloud-worker';
           this.hasInitializedWizard = false;
           this.render();
         }).open(),

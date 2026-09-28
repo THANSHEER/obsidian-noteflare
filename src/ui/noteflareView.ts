@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon, Setting } from 'obsidian';
+import { ItemView, WorkspaceLeaf, setIcon, Setting, Notice } from 'obsidian';
 import { AddSiteModal, UnpublishModal, EditSiteModal, RemoveSiteModal, PathSuggestModal, GitHubPagesUnpublishModal } from './settings/modals';
 import type NoteFlarePlugin from '../../main';
 import type { LiveSiteStatus } from '../../main';
@@ -65,14 +65,15 @@ export class NoteFlareView extends ItemView {
     root.addClass('noteflare-view');
 
     const s = this.plugin.settings;
-    
+
     if (!s.setupComplete) {
-      root.createEl('p', {
+      const setupWrap = root.createDiv();
+      setupWrap.setCssStyles({ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '12px' });
+      setupWrap.createEl('p', {
         text: 'Finish setup to publish your notes and protect your vault with automatic backups.',
         cls: 'setting-item-description',
       });
-      const setupBtn = root.createEl('button', { text: 'Open setup', cls: 'mod-cta' });
-      setupBtn.setCssStyles({ marginTop: '10px' });
+      const setupBtn = setupWrap.createEl('button', { text: 'Open setup', cls: 'mod-cta' });
       setupBtn.addEventListener('click', () => this.plugin.openSettingsTab());
       return;
     }
@@ -102,9 +103,9 @@ export class NoteFlareView extends ItemView {
     if (!site) {
       root.createEl('p', {
         text: 'No publish sites configured.',
-        cls: 'noteflare-muted',
+        cls: 'setting-item-description',
       });
-      const createBtn = root.createEl('button', { text: 'Quick create site', cls: 'mod-cta' });
+      const createBtn = root.createEl('button', { text: '+ Add your first site', cls: 'mod-cta' });
       createBtn.addEventListener('click', () => {
         new AddSiteModal(this.app, this.plugin, () => this.refresh()).open();
       });
@@ -117,28 +118,17 @@ export class NoteFlareView extends ItemView {
     const isLive = site.isPublished && !hasFailed;
     const live = this.plugin.liveStatus[site.id] ?? null;
 
-    // ── Header: Site switcher ─────────────────────────────────────────────────
-    new Setting(root)
-      .setName('Current site')
-      .addDropdown(d => {
-        for (const sp of s.sites) {
-          d.addOption(sp.id, sp.name || sp.githubRepo);
-        }
-        d.setValue(site.id);
-        d.onChange((id) => { void (async () => {
-          s.activeSiteId = id;
-          await this.plugin.saveSettings();
-          void this.render();
-        })(); });
-      })
-      .addButton(b => {
-        b.setIcon('plus').setTooltip('Create another site').onClick(() => {
-          new AddSiteModal(this.app, this.plugin, () => this.refresh()).open();
-        });
-      });
+    // ── Site Switcher ─────────────────────────────────────────────────────────
+    this.renderSiteSwitcher(root, site, s, isLive, isPublishing, hasFailed);
 
-    // ── Live Status Dashboard ─────────────────────────────────────────────────
+    // ── Status Dashboard ──────────────────────────────────────────────────────
     this.renderStatusDashboard(root, site, isLive, hasFailed, isPublishing, live);
+
+    // ── Actions ───────────────────────────────────────────────────────────────
+    this.renderActions(root, site, isLive, hasFailed, isPublishing);
+
+    // ── Divider ───────────────────────────────────────────────────────────────
+    root.createDiv({ cls: 'nf-section-divider' });
 
     // ── Cloudflare reconnect warning ─────────────────────────────────────────
     if (
@@ -155,44 +145,267 @@ export class NoteFlareView extends ItemView {
       reconnectBtn.addEventListener('click', () => { window.open(CLOUDFLARE_APP_URL, '_blank'); });
     }
 
-    // ── Site Publish Scope ───────────────────────────────────────────────────
-    let updateVisibility: () => void;
+    // ── Publish Scope ─────────────────────────────────────────────────────────
+    this.renderPublishScope(root, site);
 
-    new Setting(root)
-      .setName('Publish scope')
-      .setDesc('Configure what to publish: the entire vault or selected files/folders.')
-      .addDropdown(d => {
-        d.addOption('vault', 'Full Vault');
-        d.addOption('selected', 'Selected Files/Folders');
-        d.setValue(site.publishScope || 'vault');
-        d.onChange((v) => { void (async () => {
-          site.publishScope = v as 'vault' | 'selected';
-          updateVisibility();
-          await this.plugin.saveSettings();
-        })(); });
-      });
-
-    const pathsContainer = root.createDiv('noteflare-paths-container');
-    pathsContainer.setCssStyles({
-      paddingLeft: '0',
-      paddingRight: '0',
-      paddingBottom: '1em'
+    // ── Advanced ──────────────────────────────────────────────────────────────
+    const advRow = root.createDiv({ cls: 'nf-advanced-row' });
+    const advLabel = advRow.createSpan({ cls: 'nf-advanced-label', text: 'Metadata, styling & exclusions' });
+    void advLabel;
+    const advBtn = advRow.createEl('button', { text: 'Advanced…' });
+    advBtn.addEventListener('click', () => {
+      new EditSiteModal(this.app, this.plugin, site, () => this.refresh()).open();
     });
-    
+  }
+
+  /** Render the site switcher header with inline badge. */
+  private renderSiteSwitcher(
+    root: HTMLElement,
+    site: SiteProfile,
+    s: NoteFlarePlugin['settings'],
+    isLive: boolean,
+    isPublishing: boolean,
+    hasFailed: boolean,
+  ): void {
+    if (s.sites.length === 1) {
+      // Single site — show just the name + badge, no dropdown
+      const header = root.createDiv({ cls: 'nf-site-header' });
+      header.createSpan({ cls: 'nf-site-header-name', text: site.name || site.githubRepo || 'My Site' });
+      header.appendChild(this.makeBadgeEl(isPublishing, hasFailed, isLive));
+    } else {
+      // Multiple sites — show a Setting-style switcher
+      const switcherSetting = new Setting(root)
+        .setName('Site')
+        .addDropdown(d => {
+          for (const sp of s.sites) {
+            d.addOption(sp.id, sp.name || sp.githubRepo);
+          }
+          d.setValue(site.id);
+          d.onChange((id) => { void (async () => {
+            s.activeSiteId = id;
+            await this.plugin.saveSettings();
+            void this.render();
+          })(); });
+        })
+        .addButton(b => {
+          b.setIcon('plus').setTooltip('Add site').onClick(() => {
+            new AddSiteModal(this.app, this.plugin, () => this.refresh()).open();
+          });
+        });
+      switcherSetting.settingEl.setCssStyles({ paddingBottom: '4px' });
+    }
+  }
+
+  /** Build a styled badge element for the current publish state. */
+  private makeBadgeEl(isPublishing: boolean, hasFailed: boolean, isLive: boolean): HTMLElement {
+    const badge = document.createElement('span');
+    if (isPublishing) {
+      badge.className = 'noteflare-badge publishing';
+      badge.textContent = '● Publishing…';
+    } else if (hasFailed) {
+      badge.className = 'noteflare-badge error';
+      badge.textContent = '● Failed';
+    } else if (isLive) {
+      badge.className = 'noteflare-badge live';
+      badge.textContent = '● Live';
+    } else {
+      badge.className = 'noteflare-badge offline';
+      badge.textContent = '● Offline';
+    }
+    return badge;
+  }
+
+  /** Render the live status dashboard card. */
+  private renderStatusDashboard(
+    root: HTMLElement,
+    site: SiteProfile,
+    isLive: boolean,
+    hasFailed: boolean,
+    isPublishing: boolean,
+    live: LiveSiteStatus | null,
+  ): void {
+    const card = root.createDiv({ cls: 'nf-status-card' });
+
+    // ── Card header: badge + refresh ─────────────────────────────────────────
+    const cardHeader = card.createDiv({ cls: 'nf-status-card-header' });
+
+    // Derive badge label from live workflow data when available
+    let badgeClass = 'offline';
+    let badgeText = '● Offline';
+
+    if (isPublishing) {
+      badgeClass = 'publishing';
+      badgeText = '● Publishing…';
+    } else if (hasFailed) {
+      badgeClass = 'error';
+      badgeText = '● Last publish failed';
+    } else if (isLive) {
+      if (live && !live.loading && live.workflowStatus === 'completed') {
+        if (live.workflowConclusion === 'success') {
+          badgeClass = 'live';
+          badgeText = '● Live';
+        } else if (live.workflowConclusion === 'failure') {
+          badgeClass = 'error';
+          badgeText = site.hostingProvider === 'cloudflare' ? '● Build failed on Cloudflare' : '● Build failed on GitHub';
+        } else if (live.workflowConclusion === 'cancelled') {
+          badgeClass = 'warning';
+          badgeText = '● Build cancelled';
+        }
+      } else if (live && live.workflowStatus === 'in_progress') {
+        badgeClass = 'building';
+        badgeText = site.hostingProvider === 'cloudflare' ? '● Building on Cloudflare…' : '● Building on GitHub…';
+      } else {
+        badgeClass = 'live';
+        badgeText = '● Live';
+      }
+    }
+
+    const badgeEl = cardHeader.createSpan({ cls: `noteflare-badge ${badgeClass}`, text: badgeText });
+    void badgeEl;
+
+    // Refresh icon-button
+    const refreshBtn = cardHeader.createEl('button');
+    refreshBtn.setAttr('aria-label', 'Refresh status');
+    setIcon(refreshBtn, live?.loading ? 'loader' : 'refresh-cw');
+    refreshBtn.setCssStyles({ display: 'flex', alignItems: 'center', padding: '4px 6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: 'var(--radius-s)' });
+    if (live?.loading) {
+      refreshBtn.setAttr('disabled', 'true');
+      refreshBtn.setCssStyles({ ...refreshBtn.style, opacity: '0.5', cursor: 'not-allowed' });
+    }
+    refreshBtn.addEventListener('click', () => {
+      const s = this.plugin.getActiveSite();
+      if (s) void this.plugin.fetchLiveStatus(s);
+    });
+
+    // ── Info rows ─────────────────────────────────────────────────────────────
+    const infoList = card.createDiv({ cls: 'nf-status-info-list' });
+
+    const addInfoRow = (label: string, value: string, href?: string) => {
+      const row = infoList.createDiv({ cls: 'nf-status-info-row' });
+      row.createSpan({ cls: 'nf-status-info-label', text: label });
+      const valEl = row.createSpan({ cls: 'nf-status-info-value' });
+      if (href && value) {
+        const link = valEl.createEl('a', { text: value, href });
+        link.addEventListener('click', (e) => { e.preventDefault(); window.open(href, '_blank'); });
+      } else {
+        valEl.setText(value || '—');
+      }
+    };
+
+    // Site URL
+    addInfoRow(
+      'URL',
+      site.siteUrl || '—',
+      site.siteUrl ? `https://${site.siteUrl.replace(/^https?:\/\//, '')}` : undefined,
+    );
+
+    // Host
+    const hostLabel = site.hostingProvider === 'cloud-worker' ? 'Cloud Worker Engine'
+      : site.hostingProvider === 'cloudflare' ? 'Cloudflare Pages'
+      : site.hostingProvider;
+    addInfoRow('Host', hostLabel);
+
+    if (live && !live.loading) {
+      const repoPath = `${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`;
+      const repoUrl = live.repoHtmlUrl || `https://github.com/${repoPath}`;
+      addInfoRow('Repository', repoPath, repoUrl);
+      addInfoRow('Last push', live.repoPushedAt ? relativeTime(live.repoPushedAt) : '—');
+
+      if (live.commitSha) {
+        const shortSha = live.commitSha.slice(0, 7);
+        const commitMsg = live.commitMessage ? ` — ${live.commitMessage.slice(0, 38)}` : '';
+        addInfoRow(
+          'Last commit',
+          `${shortSha}${commitMsg}`,
+          `https://github.com/${repoPath}/commits`,
+        );
+        addInfoRow('Committed', relativeTime(live.commitDate));
+      }
+
+      if ((site.hostingProvider === 'cloud-worker' || site.hostingProvider === 'cloudflare') && live.workflowStatus) {
+        const wfLabel = live.workflowStatus === 'in_progress' ? 'Building…'
+          : live.workflowConclusion === 'success' ? '✓ Passed'
+          : live.workflowConclusion === 'failure' ? '✗ Failed'
+          : live.workflowConclusion === 'cancelled' ? '⊘ Cancelled'
+          : live.workflowStatus;
+        addInfoRow('Build', wfLabel, live.workflowUrl || undefined);
+        addInfoRow('Build ran', relativeTime(live.workflowUpdatedAt));
+      }
+
+      if (live.fetchedAt) {
+        card.createEl('p', {
+          cls: 'nf-status-fetched',
+          text: `Refreshed ${relativeTime(live.fetchedAt)}`,
+        });
+      }
+    } else if (live?.loading) {
+      card.createEl('p', { cls: 'nf-status-loading', text: 'Fetching live status…' });
+    } else {
+      // No live data yet — show cached info
+      const repoPath = `${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`;
+      addInfoRow('Repository', repoPath, `https://github.com/${repoPath}`);
+      if (site.lastPublished) {
+        addInfoRow('Published', relativeTime(site.lastPublished));
+        addInfoRow('Notes', String(site.lastNoteCount));
+      }
+    }
+
+    // ── Error display ─────────────────────────────────────────────────────────
+    if (hasFailed && site.lastPublishError) {
+      card.createEl('p', {
+        cls: 'nf-status-error',
+        text: `⚠ ${site.lastPublishError}`,
+      });
+    }
+
+    // ── Backup status ─────────────────────────────────────────────────────────
+    if (this.plugin.settings.enableBackup) {
+      const backupRow = card.createDiv({ cls: 'nf-status-backup-row' });
+      const iconSpan = backupRow.createSpan();
+      if (this.plugin.settings.backup.lastBackupError) {
+        setIcon(iconSpan, 'alert-triangle');
+        iconSpan.setCssStyles({ color: 'var(--color-orange)', display: 'flex', alignItems: 'center', width: '14px', height: '14px' });
+        backupRow.createSpan({ text: `Backup: ${this.plugin.settings.backup.lastBackupError}` });
+      } else if (this.plugin.settings.backup.lastBackupAt) {
+        setIcon(iconSpan, 'check');
+        iconSpan.setCssStyles({ color: 'var(--color-green)', display: 'flex', alignItems: 'center', width: '14px', height: '14px' });
+        backupRow.createSpan({ text: `Backup: ${relativeTime(this.plugin.settings.backup.lastBackupAt)}` });
+      } else {
+        setIcon(iconSpan, 'clock');
+        iconSpan.setCssStyles({ color: 'var(--text-faint)', display: 'flex', alignItems: 'center', width: '14px', height: '14px' });
+        backupRow.createSpan({ text: 'Backup: not run yet' });
+      }
+    }
+  }
+
+  /** Render the publish scope picker with path chips. */
+  private renderPublishScope(root: HTMLElement, site: SiteProfile): void {
+    const section = root.createDiv({ cls: 'nf-scope-section' });
+
+    const scopeHeader = section.createDiv({ cls: 'nf-scope-header' });
+    scopeHeader.createSpan({ cls: 'nf-scope-label', text: 'Publish scope' });
+
+    // Dropdown for scope
+    const scopeSelect = scopeHeader.createEl('select');
+    scopeSelect.setCssStyles({ fontSize: 'var(--font-ui-smaller)', padding: '3px 6px', borderRadius: 'var(--radius-s)', border: '1px solid var(--background-modifier-border)', background: 'var(--background-modifier-form-field)', color: 'var(--text-normal)', cursor: 'pointer' });
+    const optVault = scopeSelect.createEl('option', { text: 'Full vault', value: 'vault' });
+    const optSelected = scopeSelect.createEl('option', { text: 'Selected paths', value: 'selected' });
+    scopeSelect.value = site.publishScope || 'vault';
+
+    const pathsDiv = section.createDiv({ cls: 'nf-scope-paths' });
+
     const renderPaths = () => {
-      pathsContainer.empty();
+      pathsDiv.empty();
       if ((site.publishScope || 'vault') === 'vault') {
-        pathsContainer.setCssStyles({ display: 'none' });
+        pathsDiv.setCssStyles({ display: 'none' });
+        section.createEl('p', { cls: 'nf-scope-desc', text: 'All notes in your vault will be published.' })?.setCssStyles?.({ display: site.publishScope === 'vault' ? '' : 'none' });
         return;
       }
-      pathsContainer.setCssStyles({ display: 'block' });
-      
-      const addRow = pathsContainer.createDiv('noteflare-add-path-row');
-      addRow.setCssStyles({ marginTop: '8px' });
-      
-      const addBtn = addRow.createEl('button', { text: 'Browse Vault...' });
-      addBtn.setCssStyles({ width: '100%' });
-      addBtn.addEventListener('click', () => {
+      pathsDiv.setCssStyles({ display: 'flex' });
+
+      // Browse button
+      const browseBtn = pathsDiv.createEl('button', { text: '+ Browse vault…', cls: 'nf-browse-btn' });
+      browseBtn.addEventListener('click', () => {
         new PathSuggestModal(this.app, (selectedPath) => { void (async () => {
           if (!site.publishPaths) site.publishPaths = [];
           if (!site.publishPaths.includes(selectedPath)) {
@@ -205,55 +418,22 @@ export class NoteFlareView extends ItemView {
 
       const paths = site.publishPaths || [];
       if (paths.length === 0) {
-        const p = pathsContainer.createEl('p', { text: 'No files or folders selected.', cls: 'setting-item-description' });
-        p.setCssStyles({ marginTop: '12px' });
+        pathsDiv.createEl('p', { cls: 'nf-no-paths-hint', text: 'No paths selected — all notes will be excluded.' });
       } else {
-        const chipContainer = pathsContainer.createDiv();
-        chipContainer.setCssStyles({
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '8px',
-          marginTop: '12px',
-          maxHeight: '150px',
-          overflowY: 'auto',
-          padding: '4px 0'
-        });
-
+        const chipContainer = pathsDiv.createDiv({ cls: 'nf-path-chips' });
         for (let i = 0; i < paths.length; i++) {
-          const chip = chipContainer.createDiv();
-          chip.setCssStyles({
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 8px',
-            background: 'var(--background-modifier-form-field)',
-            border: '1px solid var(--background-modifier-border)',
-            borderRadius: 'var(--radius-s)',
-            fontSize: 'var(--font-ui-smaller)'
-          });
-          
-          const iconSpan = chip.createSpan();
+          const chip = chipContainer.createDiv({ cls: 'nf-path-chip' });
+
+          const iconSpan = chip.createSpan({ cls: 'nf-path-chip-icon' });
           const abstractFile = this.app.vault.getAbstractFileByPath(paths[i]);
           const isFolder = abstractFile && 'children' in abstractFile;
           setIcon(iconSpan, isFolder ? 'folder' : 'file-text');
-          iconSpan.setCssStyles({
-            display: 'flex',
-            alignItems: 'center',
-            color: 'var(--text-muted)',
-            width: '14px',
-            height: '14px'
-          });
-          
+
           chip.createSpan({ text: paths[i] });
-          const removeBtn = chip.createSpan({ cls: 'clickable-icon' });
+
+          const removeBtn = chip.createSpan({ cls: 'nf-path-chip-remove clickable-icon' });
           setIcon(removeBtn, 'x');
-          removeBtn.setCssStyles({
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0',
-            width: '14px',
-            height: '14px'
-          });
+          removeBtn.setAttribute('aria-label', `Remove ${paths[i]}`);
           removeBtn.addEventListener('click', () => { void (async () => {
             site.publishPaths?.splice(i, 1);
             await this.plugin.saveSettings();
@@ -263,212 +443,14 @@ export class NoteFlareView extends ItemView {
       }
     };
 
-    updateVisibility = () => {
+    scopeSelect.addEventListener('change', () => { void (async () => {
+      site.publishScope = scopeSelect.value as 'vault' | 'selected';
       renderPaths();
-    };
-    updateVisibility();
+      await this.plugin.saveSettings();
+    })(); });
 
-    // ── Advanced Customization ──────────────────────────────────────────────
-    new Setting(root)
-      .setName('Advanced')
-      .setDesc('Configure metadata, styling, and exclusions for this site.')
-      .addButton(b => {
-        b.setButtonText('Edit').onClick(() => {
-          new EditSiteModal(this.app, this.plugin, site, () => this.refresh()).open();
-        });
-      });
-
-    // ── Actions ──────────────────────────────────────────────────────────────
-    this.renderActions(root, site, isLive, hasFailed, isPublishing);
-  }
-
-  /** Render the live status dashboard card. */
-  private renderStatusDashboard(
-    root: HTMLElement,
-    site: SiteProfile,
-    isLive: boolean,
-    hasFailed: boolean,
-    isPublishing: boolean,
-    live: LiveSiteStatus | null,
-  ): void {
-    const card = root.createDiv('nf-status-card');
-    card.setCssStyles({
-      marginBottom: '12px',
-      padding: '12px 14px',
-      border: '1px solid var(--background-modifier-border)',
-      borderRadius: 'var(--radius-m)',
-      backgroundColor: 'var(--background-primary-alt)',
-    });
-
-    // ── Row 1: Status badge + Refresh ────────────────────────────────────────
-    const headerRow = card.createDiv();
-    headerRow.setCssStyles({
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: '10px',
-    });
-
-    // Derive the badge from single source of truth
-    let badgeEmoji = '⚪';
-    let badgeText = 'Offline';
-    let badgeColor = 'var(--text-muted)';
-
-    if (isPublishing) {
-      badgeEmoji = '🔵';
-      badgeText = 'Publishing…';
-      badgeColor = 'var(--text-accent)';
-    } else if (hasFailed) {
-      badgeEmoji = '🔴';
-      badgeText = 'Last publish failed';
-      badgeColor = 'var(--text-error)';
-    } else if (isLive) {
-      // If we have live data, show the actual workflow conclusion
-      if (live && !live.loading && live.workflowStatus === 'completed') {
-        if (live.workflowConclusion === 'success') {
-          badgeEmoji = '🟢';
-          badgeText = 'Live';
-          badgeColor = 'var(--text-success)';
-        } else if (live.workflowConclusion === 'failure') {
-          badgeEmoji = '🔴';
-          badgeText = site.hostingProvider === 'cloudflare' ? 'Build failed on Cloudflare' : 'Build failed on GitHub';
-          badgeColor = 'var(--text-error)';
-        } else if (live.workflowConclusion === 'cancelled') {
-          badgeEmoji = '🟡';
-          badgeText = 'Build cancelled';
-          badgeColor = 'var(--color-yellow)';
-        }
-      } else if (live && live.workflowStatus === 'in_progress') {
-        badgeEmoji = '🔵';
-        badgeText = site.hostingProvider === 'cloudflare' ? 'Building on Cloudflare…' : 'Building on GitHub…';
-        badgeColor = 'var(--text-accent)';
-      } else {
-        badgeEmoji = '🟢';
-        badgeText = 'Live';
-        badgeColor = 'var(--text-success)';
-      }
-    }
-
-    const badgeEl = headerRow.createSpan();
-    badgeEl.setCssStyles({ fontWeight: '600', color: badgeColor, fontSize: 'var(--font-ui-medium)' });
-    badgeEl.setText(`${badgeEmoji} ${badgeText}`);
-
-    // Refresh button (right side)
-    const refreshBtn = headerRow.createEl('button', { text: live?.loading ? '…' : '↻ Refresh' });
-    refreshBtn.setCssStyles({ fontSize: 'var(--font-ui-smaller)', padding: '2px 8px' });
-    if (live?.loading) refreshBtn.setAttr('disabled', 'true');
-    refreshBtn.addEventListener('click', () => {
-      const s = this.plugin.getActiveSite();
-      if (s) void this.plugin.fetchLiveStatus(s);
-    });
-
-    // ── Row 2: Details grid ───────────────────────────────────────────────────
-    const grid = card.createDiv();
-    grid.setCssStyles({
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: '6px 16px',
-      fontSize: 'var(--font-ui-smaller)',
-      color: 'var(--text-muted)',
-    });
-
-    const addRow = (label: string, value: string, href?: string) => {
-      const labelEl = grid.createSpan({ text: label });
-      labelEl.setCssStyles({ fontWeight: '500', color: 'var(--text-normal)' });
-      if (href && value) {
-        const linkEl = grid.createEl('a', { text: value, href });
-        linkEl.setCssStyles({ color: 'var(--text-accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' });
-        linkEl.addEventListener('click', (e) => { e.preventDefault(); window.open(href, '_blank'); });
-      } else {
-        const valEl = grid.createSpan({ text: value || '—' });
-        valEl.setCssStyles({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-      }
-    };
-
-    // Site URL
-    addRow('Site URL', site.siteUrl ? site.siteUrl : '—', site.siteUrl ? `https://${site.siteUrl.replace(/^https?:\/\//, '')}` : undefined);
-
-    // Host
-    const hostLabel = site.hostingProvider === 'cloudflare' ? 'Cloudflare Pages'
-      : site.hostingProvider === 'github-pages' ? 'GitHub Pages'
-      : site.hostingProvider;
-    addRow('Host', hostLabel);
-
-    if (live && !live.loading) {
-      // Repository link
-      addRow(
-        'Repository',
-        `${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`,
-        live.repoHtmlUrl || `https://github.com/${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`,
-      );
-
-      // Last push time
-      addRow('Last push', live.repoPushedAt ? relativeTime(live.repoPushedAt) : '—');
-
-      // Commit
-      if (live.commitSha) {
-        addRow(
-          'Last commit',
-          `${live.commitSha}${live.commitMessage ? ` — ${live.commitMessage.slice(0, 40)}` : ''}`,
-          live.commitSha ? `https://github.com/${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}/commits` : undefined,
-        );
-        addRow('Committed', relativeTime(live.commitDate));
-      }
-
-      // Workflow run
-      if ((site.hostingProvider === 'github-pages' || site.hostingProvider === 'cloudflare') && live.workflowStatus) {
-        const wfLabel = live.workflowStatus === 'in_progress' ? '🔄 Building…'
-          : live.workflowConclusion === 'success' ? '✅ Passed'
-          : live.workflowConclusion === 'failure' ? '❌ Failed'
-          : live.workflowConclusion === 'cancelled' ? '⛔ Cancelled'
-          : live.workflowStatus;
-        addRow('Build', wfLabel, live.workflowUrl || undefined);
-        addRow('Build ran', relativeTime(live.workflowUpdatedAt));
-      }
-
-      // Fetched at
-      if (live.fetchedAt) {
-        const fetchedEl = card.createEl('p', { text: `Status fetched ${relativeTime(live.fetchedAt)}` });
-        fetchedEl.setCssStyles({ margin: '8px 0 0 0', fontSize: 'var(--font-ui-smaller)', color: 'var(--text-faint)' });
-      }
-    } else if (live?.loading) {
-      const loadingEl = card.createEl('p', { text: 'Fetching live status…' });
-      loadingEl.setCssStyles({ margin: '6px 0 0 0', fontSize: 'var(--font-ui-smaller)', color: 'var(--text-muted)' });
-    } else {
-      // No live data yet — show cached info
-      addRow(
-        'Repository',
-        `${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`,
-        `https://github.com/${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}`,
-      );
-      if (site.lastPublished) {
-        addRow('Last published', relativeTime(site.lastPublished));
-        addRow('Notes', String(site.lastNoteCount));
-      }
-    }
-
-    // ── Error display ────────────────────────────────────────────────────────
-    if (hasFailed && site.lastPublishError) {
-      const errEl = card.createEl('p', { text: `⚠ ${site.lastPublishError}` });
-      errEl.setCssStyles({
-        margin: '8px 0 0 0',
-        fontSize: 'var(--font-ui-smaller)',
-        color: 'var(--text-error)',
-        wordBreak: 'break-word',
-      });
-    }
-
-    // ── Backup status ────────────────────────────────────────────────────────
-    if (this.plugin.settings.enableBackup) {
-      const backupEl = card.createEl('p');
-      backupEl.setCssStyles({ margin: '8px 0 0 0', fontSize: 'var(--font-ui-smaller)', color: 'var(--text-muted)', borderTop: '1px solid var(--background-modifier-border)', paddingTop: '8px' });
-      const backupText = this.plugin.settings.backup.lastBackupError
-        ? `Backup: ⚠ ${this.plugin.settings.backup.lastBackupError}`
-        : this.plugin.settings.backup.lastBackupAt
-          ? `Backup: ✓ ${relativeTime(this.plugin.settings.backup.lastBackupAt)}`
-          : 'Backup: not run yet';
-      backupEl.setText(backupText);
-    }
+    void optVault; void optSelected;
+    renderPaths();
   }
 
   /** Render the Publish / Unpublish / Delete action buttons. */
@@ -479,35 +461,9 @@ export class NoteFlareView extends ItemView {
     hasFailed: boolean,
     isPublishing: boolean,
   ): void {
-    const actionBox = root.createDiv('nf-actions-box');
-    actionBox.setCssStyles({
-      marginTop: '8px',
-      padding: '12px',
-      border: '1px solid var(--background-modifier-border)',
-      backgroundColor: 'var(--background-primary-alt)',
-      borderRadius: 'var(--radius-s)',
-      marginBottom: '15px'
-    });
+    const bar = root.createDiv({ cls: 'nf-actions-bar' });
 
-    const actionHeading = new Setting(actionBox).setName('Actions').setHeading();
-    actionHeading.settingEl.setCssStyles({ border: 'none', padding: '0', marginBottom: '12px' });
-    
-    const actionSetting = new Setting(actionBox);
-    actionSetting.settingEl.setCssStyles({ border: 'none', padding: '0' });
-    actionSetting.infoEl.setCssStyles({ display: 'none' });
-    actionSetting.controlEl.setCssStyles({
-      display: 'flex',
-      flexDirection: 'row',
-      gap: '8px',
-      flexWrap: 'wrap',
-      justifyContent: 'flex-end',
-      width: '100%'
-    });
-
-    // ── Button label: single source of truth from persisted SiteProfile ──────
-    // hasFailed → "Republish"
-    // isLive (never failed) → "Update"
-    // never published → "Publish"
+    // ── Primary: Publish / Update / Republish ─────────────────────────────────
     const publishLabel = isPublishing
       ? 'Publishing…'
       : hasFailed
@@ -516,74 +472,74 @@ export class NoteFlareView extends ItemView {
           ? 'Update'
           : 'Publish';
 
-    const hostingProvider = site.hostingProvider;
+    const publishBtn = bar.createEl('button', {
+      text: publishLabel,
+      cls: isPublishing ? '' : 'mod-cta nf-actions-bar-primary',
+    });
+    if (isPublishing) {
+      publishBtn.setAttr('disabled', 'true');
+      publishBtn.setCssStyles({ flex: '1' });
+    } else {
+      publishBtn.setCssStyles({ flex: '1' });
+    }
 
-    actionSetting
-      .addButton(b => {
-        b.setButtonText(publishLabel);
-        if (isPublishing) {
-          b.setDisabled(true);
-        } else {
-          b.setCta();
-        }
+    publishBtn.addEventListener('click', () => { void (async () => {
+      publishBtn.setAttr('disabled', 'true');
+      publishBtn.textContent = 'Publishing…';
+      try {
+        await this.plugin.doPublish();
+      } finally {
+        void this.render();
+      }
+    })(); });
+
+    // ── Secondary group ───────────────────────────────────────────────────────
+    const secondaryGroup = bar.createDiv({ cls: 'nf-actions-bar-secondary' });
+
+    // Unpublish
+    const unpublishBtn = secondaryGroup.createEl('button', {
+      text: 'Take offline',
+      cls: 'mod-warning',
+    });
+    if (!isLive || isPublishing) {
+      unpublishBtn.setAttr('disabled', 'true');
+    }
+    unpublishBtn.addEventListener('click', () => {
+      new UnpublishModal(this.app, this.plugin, () => this.refresh()).open();
+    });
+
+    // Delete
+    const deleteTooltip = site.hostingProvider === 'cloud-worker'
+      ? 'Deletes the site deployment from Cloud Engine'
+      : 'Removes the site deployment and repository files';
+    const deleteBtn = secondaryGroup.createEl('button', { text: 'Delete', cls: 'mod-warning' });
+    deleteBtn.setAttr('title', deleteTooltip);
+    if (isPublishing) deleteBtn.setAttr('disabled', 'true');
+    deleteBtn.addEventListener('click', () => {
+      new RemoveSiteModal(this.app, this.plugin, site, () => {
+        this.refresh();
+      }).open();
+    });
+
+    // ── Error recovery: shown only on failure ─────────────────────────────────
+    if (hasFailed) {
+      const recoveryDiv = root.createDiv({ cls: 'nf-error-recovery' });
+      const recoverySetting = new Setting(recoveryDiv);
+      recoverySetting.settingEl.setCssStyles({ border: 'none', padding: '0' });
+      recoverySetting.setName('Clear error state');
+      recoverySetting.setDesc('Reset all failed flags to start a fresh publish attempt.');
+      recoverySetting.addButton(b => {
+        b.setButtonText('Reset');
+        b.setTooltip('Clears lastPublishFailed, lastPublishError, and isPublished so you can start fresh');
+        b.buttonEl.addClass('mod-warning');
         b.onClick(() => { void (async () => {
-          b.setDisabled(true);
-          b.setButtonText('Publishing…');
-          try {
-            await this.plugin.doPublish();
-          } finally {
-            void this.render();
-          }
+          site.lastPublishFailed = false;
+          site.lastPublishError = '';
+          site.isPublished = false;
+          await this.plugin.saveSettings();
+          void this.render();
         })(); });
-      })
-      .addButton(b => {
-        if (hostingProvider === 'cloudflare') {
-          b.setButtonText('Unpublish');
-          if (!isLive || isPublishing) {
-            b.setDisabled(true);
-          } else {
-            b.buttonEl.addClass('mod-warning');
-          }
-          b.onClick(() => {
-            new UnpublishModal(this.app, this.plugin, () => this.refresh()).open();
-          });
-        } else {
-          // GitHub Pages cannot be paused via API.
-          b.setButtonText('Unpublish (Manual)');
-          if (!isLive || isPublishing) {
-            b.setDisabled(true);
-          } else {
-            b.buttonEl.addClass('mod-warning');
-          }
-          b.onClick(() => {
-            void (async () => {
-              // Mark the site offline locally so the panel reflects the change.
-              // The user must still manually disable GitHub Pages in their repo
-              // settings — this just keeps NoteFlare's state consistent.
-              site.isPublished = false;
-              await this.plugin.saveSettings();
-              new GitHubPagesUnpublishModal(
-                this.app,
-                `https://github.com/${this.plugin.settings.githubOwner}/${this.plugin.settings.masterRepository}/settings/pages`,
-              ).open();
-              this.refresh();
-            })();
-          });
-        }
-      })
-      .addButton(b => {
-        const deleteTooltip = hostingProvider === 'cloudflare'
-          ? 'Removes the Cloudflare Pages project (API) and the site folder from GitHub'
-          : 'Removes the site folder from GitHub. GitHub Pages link may remain — disable it manually in repo Settings → Pages';
-        b.setButtonText('Delete');
-        b.setTooltip(deleteTooltip);
-        if (isPublishing) b.setDisabled(true);
-        else b.buttonEl.addClass('mod-warning');
-        b.onClick(() => {
-          new RemoveSiteModal(this.app, this.plugin, site, () => {
-            this.refresh();
-          }).open();
-        });
       });
+    }
   }
 }

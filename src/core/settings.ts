@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS: NoteFlareSettings = {
   masterRepositoryPrivate: false,
   defaultViewLocation: 'left',
   lastSeenVersion: '',
+  showWhatsNewOnUpdate: true,
 };
 
 /** Build a fresh site profile with sensible defaults. */
@@ -54,7 +55,7 @@ export function createSiteProfile(partial: Partial<SiteProfile> = {}): SiteProfi
     lastNoteCount: 0,
     lastPublishFailed: false,
     lastPublishError: '',
-    hostingProvider: 'cloudflare',
+    hostingProvider: 'cloud-worker',
     ...partial,
   };
 }
